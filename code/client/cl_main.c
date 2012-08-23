@@ -63,8 +63,8 @@ cvar_t	*rcon_client_password;
 cvar_t	*rconAddress;
 
 cvar_t	*cl_timeout;
-cvar_t	*sacc_maxpackets;
-cvar_t	*sacc_packetdup;
+cvar_t	*cl_maxpackets;
+cvar_t	*cl_packetdup;
 cvar_t	*cl_timeNudge;
 cvar_t	*cl_showTimeDelta;
 cvar_t	*cl_freezeDemo;
@@ -77,7 +77,6 @@ cvar_t	*cl_autoRecordDemo;
 cvar_t	*cl_aviFrameRate;
 cvar_t	*cl_aviMotionJpeg;
 cvar_t	*cl_forceavidemo;
-cvar_t	*cl_recordfontsize;
 
 cvar_t	*cl_freelook;
 cvar_t	*cl_sensitivity;
@@ -108,7 +107,7 @@ cvar_t	*cl_activeAction;
 
 cvar_t	*cl_motdString;
 
-cvar_t	*cl_autodownload;
+cvar_t	*cl_allowDownload;
 cvar_t	*cl_conXOffset;
 cvar_t	*cl_inGameVideo;
 
@@ -118,19 +117,13 @@ cvar_t	*cl_trn;
 cvar_t	*cl_lanForcePackets;
 
 cvar_t	*cl_guidServerUniq;
-cvar_t *cl_altTab;
+
 cvar_t	*cl_consoleKeys;
 
 clientActive_t		cl;
 clientConnection_t	clc;
 clientStatic_t		cls;
 vm_t				*cgvm;
-
-#ifdef USE_AUTH
-cvar_t *cl_auth_engine;
-cvar_t *cl_auth;
-cvar_t *cl_authc;
-#endif
 
 // Structure containing functions exported from refresh DLL
 refexport_t	re;
@@ -639,9 +632,6 @@ void CL_WriteDemoMessage ( msg_t *msg, int headerBytes ) {
 	swlen = LittleLong(len);
 	FS_Write (&swlen, 4, clc.demofile);
 	FS_Write ( msg->data + headerBytes, len, clc.demofile );
-#ifdef URT42
-	FS_Write(&len, 4, clc.demofile);
-#endif
 }
 
 
@@ -739,24 +729,25 @@ void CL_Record_f( void ) {
 	if ( Cmd_Argc() == 2 ) {
 		s = Cmd_Argv(1);
 		Q_strncpyz( demoName, s, sizeof( demoName ) );
+#ifdef LEGACY_PROTOCOL
 		if(clc.compat)
-#ifdef URT42
-			Com_sprintf(name, sizeof(name), "demos/%s.%s", demoName, DEMOEXT);
-#else
 			Com_sprintf(name, sizeof(name), "demos/%s.%s%d", demoName, DEMOEXT, com_legacyprotocol->integer);
+		else
 #endif
+			Com_sprintf(name, sizeof(name), "demos/%s.%s%d", demoName, DEMOEXT, com_protocol->integer);
 	} else {
 		int		number;
 
 		// scan for a free demo name
 		for ( number = 0 ; number <= 9999 ; number++ ) {
 			CL_DemoFilename( number, demoName );
+#ifdef LEGACY_PROTOCOL
 			if(clc.compat)
-#ifdef URT42
-				Com_sprintf(name, sizeof(name), "demos/%s.%s", demoName, DEMOEXT);
-#else
 				Com_sprintf(name, sizeof(name), "demos/%s.%s%d", demoName, DEMOEXT, com_legacyprotocol->integer);
+			else
 #endif
+				Com_sprintf(name, sizeof(name), "demos/%s.%s%d", demoName, DEMOEXT, com_protocol->integer);
+
 			if (!FS_FileExists(name))
 				break;	// file doesn't exist
 		}
@@ -764,37 +755,12 @@ void CL_Record_f( void ) {
 
 	// open the demo file
 
-	// this is ugly... i have no idea why.
-
-	if(!strcmp(DEMOEXT, "urtdemo")) 
-		Com_sprintf(name, sizeof(name), "demos/%s.%s", demoName, DEMOEXT);
-
 	Com_Printf ("recording to %s.\n", name);
 	clc.demofile = FS_FOpenFileWrite( name );
 	if ( !clc.demofile ) {
 		Com_Printf ("ERROR: couldn't open.\n");
 		return;
 	}
-
-#ifdef URT42
-	char *s2;
-	const char *serverInfo = cl.gameState.stringData + cl.gameState.stringOffsets[CS_SERVERINFO];
-	s2 = Info_ValueForKey(serverInfo, "g_modversion");
-
-	int size = strlen(s2);
-	len = LittleLong(size);
-	FS_Write(&len, 4, clc.demofile);
-	FS_Write(s2, size, clc.demofile);
-
-	int v = LittleLong( PROTOCOL_VERSION );
-	FS_Write( &v, 4, clc.demofile);
-
-	len = 0;
-	len = LittleLong( len );
-	FS_Write(&len, 4, clc.demofile);
-	FS_Write(&len, 4, clc.demofile);
-#endif
-
 	clc.demorecording = qtrue;
 	if (Cvar_VariableValue("ui_recordSPDemo")) {
 	  clc.spDemoRecording = qtrue;
@@ -859,9 +825,6 @@ void CL_Record_f( void ) {
 	FS_Write (&len, 4, clc.demofile);
 	FS_Write (buf.data, buf.cursize, clc.demofile);
 
-#ifdef URT42
-	FS_Write(&len, 4, clc.demofile);
-#endif
 	// the rest of the demo file will be copied from net messages
 }
 
@@ -923,7 +886,7 @@ void CL_DemoCompleted( void )
 		{
 			// Millisecond times are frame durations:
 			// minimum/average/maximum/std deviation
-			Com_sprintf( buffer, sizeof( buffer ), S_COLOR_YELLOW
+			Com_sprintf( buffer, sizeof( buffer ),
 					"%i frames %3.1f seconds %3.1f fps %d.0/%.1f/%d.0/%.1f ms\n",
 					clc.timeDemoFrames,
 					time/1000.0,
@@ -1008,12 +971,6 @@ void CL_ReadDemoMessage( void ) {
 		CL_DemoCompleted ();
 		return;
 	}
-#ifdef URT42
-	if(buf.cursize == 0) {
-		CL_DemoCompleted();
-		return;
-	}
-#endif
 	if ( buf.cursize > buf.maxsize ) {
 		Com_Error (ERR_DROP, "CL_ReadDemoMessage: demoMsglen > MAX_MSGLEN");
 	}
@@ -1024,19 +981,6 @@ void CL_ReadDemoMessage( void ) {
 		return;
 	}
 
-#ifdef URT42
-	int length_backward;
-	r = FS_Read(&length_backward, 4, clc.demofile);
-	if(r != 4) {
-		CL_DemoCompleted();
-		return;
-	}
-	length_backward = LittleLong(length_backward);
-	if(length_backward != buf.cursize) {
-		CL_DemoCompleted();
-		return;
-	}
-#endif
 	clc.lastPacketTime = cls.realtime;
 	buf.readcount = 0;
 	CL_ParseServerMessage( &buf );
@@ -1052,12 +996,10 @@ static int CL_WalkDemoExt(char *arg, char *name, int *demofile)
 	int i = 0;
 	*demofile = 0;
 
+#ifdef LEGACY_PROTOCOL
 	if(com_legacyprotocol->integer > 0)
 	{
-		if(!strcmp(DEMOEXT, "urtdemo"))
-			Com_sprintf(name, MAX_OSPATH, "demos/%s.%s", arg, DEMOEXT);
-		else
-			Com_sprintf(name, MAX_OSPATH, "demos/%s.%s%d", arg, DEMOEXT, com_legacyprotocol->integer);
+		Com_sprintf(name, MAX_OSPATH, "demos/%s.%s%d", arg, DEMOEXT, com_legacyprotocol->integer);
 		FS_FOpenFileRead(name, demofile, qtrue);
 		
 		if (*demofile)
@@ -1066,9 +1008,44 @@ static int CL_WalkDemoExt(char *arg, char *name, int *demofile)
 			return com_legacyprotocol->integer;
 		}
 	}
+	
+	if(com_protocol->integer != com_legacyprotocol->integer)
+#endif
+	{
+		Com_sprintf(name, MAX_OSPATH, "demos/%s.%s%d", arg, DEMOEXT, com_protocol->integer);
+		FS_FOpenFileRead(name, demofile, qtrue);
+
+		if (*demofile)
+		{
+			Com_Printf("Demo file: %s\n", name);
+			return com_protocol->integer;
+		}
+	}
 
 	Com_Printf("Not found: %s\n", name);
 
+	while(demo_protocols[i])
+	{
+#ifdef LEGACY_PROTOCOL
+		if(demo_protocols[i] == com_legacyprotocol->integer)
+			continue;
+#endif
+		if(demo_protocols[i] == com_protocol->integer)
+			continue;
+	
+		Com_sprintf (name, MAX_OSPATH, "demos/%s.%s%d", arg, DEMOEXT, demo_protocols[i]);
+		FS_FOpenFileRead( name, demofile, qtrue );
+		if (*demofile)
+		{
+			Com_Printf("Demo file: %s\n", name);
+
+			return demo_protocols[i];
+		}
+		else
+			Com_Printf("Not found: %s\n", name);
+		i++;
+	}
+	
 	return -1;
 }
 
@@ -1083,11 +1060,7 @@ static void CL_CompleteDemoName( char *args, int argNum )
 	{
 		char demoExt[ 16 ];
 
-#ifdef URT42
-		Com_sprintf(demoExt, sizeof(demoExt), ".%s", DEMOEXT);
-#else
 		Com_sprintf(demoExt, sizeof(demoExt), ".%s%d", DEMOEXT, com_protocol->integer);
-#endif
 		Field_CompleteFilename( "demos", demoExt, qtrue, qtrue );
 	}
 }
@@ -1120,17 +1093,9 @@ void CL_PlayDemo_f( void ) {
 	
 	CL_Disconnect( qtrue );
 
-	if(!arg) return;
-
 	// check for an extension .DEMOEXT_?? (?? is protocol)
 	ext_test = strrchr(arg, '.');
-
-#ifdef URT42
-	if(ext_test && !Q_stricmpn(ext_test + 1, DEMOEXT, ARRAY_LEN(DEMOEXT) - 1)) {
-		Com_sprintf(name, sizeof(name), "demos/%s", arg);
-		FS_FOpenFileRead(name, &clc.demofile, qtrue);
-	}
-#else	
+	
 	if(ext_test && !Q_stricmpn(ext_test + 1, DEMOEXT, ARRAY_LEN(DEMOEXT) - 1))
 	{
 		protocol = atoi(ext_test + ARRAY_LEN(DEMOEXT));
@@ -1142,7 +1107,9 @@ void CL_PlayDemo_f( void ) {
 		}
 
 		if(demo_protocols[i] || protocol == com_protocol->integer
+#ifdef LEGACY_PROTOCOL
 		   || protocol == com_legacyprotocol->integer
+#endif
 		  )
 		{
 			Com_sprintf(name, sizeof(name), "demos/%s", arg);
@@ -1163,72 +1130,16 @@ void CL_PlayDemo_f( void ) {
 			protocol = CL_WalkDemoExt(retry, name, &clc.demofile);
 		}
 	}
-#endif
 	else
 		protocol = CL_WalkDemoExt(arg, name, &clc.demofile);
 	
 	if (!clc.demofile) {
-		Com_Error( ERR_DROP, "Couldn't open %s", name);
+		Com_Error( ERR_DROP, "couldn't open %s", name);
 		return;
 	}
 	Q_strncpyz( clc.demoName, Cmd_Argv(1), sizeof( clc.demoName ) );
 
 	Con_Close();
-#ifdef URT42
-	char *s1, *s2;
-	int r, len;
-
-	const char *serverInfo = cl.gameState.stringData + cl.gameState.stringOffsets[CS_SERVERINFO];
-	s1 = Info_ValueForKey(serverInfo, "g_modversion");
-
-	r = FS_Read(&len, 4, clc.demofile);
-	if(r != 4) {
-		CL_DemoCompleted();
-		return;
-	}
-
-	len = LittleLong(len);
-
-	s2 = malloc(len+1);
-	FS_Read(s2, len, clc.demofile);
-	if(r != len) {
-		CL_DemoCompleted();
-		free(s2);
-		return;
-	}
-
-	s2[len] = '\0';
-
-	int v1 = LittleLong(PROTOCOL_VERSION), v2;
-	r = FS_Read(&v2, 4, clc.demofile);
-	if (r != 4) {
-		CL_DemoCompleted();
-		free(s2);
-		return;
-	}
-/*
-	if(strcmp(s1, s2)) {
-		Com_Printf("Game version %s not supported for demos\n", s2);
-		CL_DemoCompleted();
-		free(s2);
-		return;
-	}
-*/
-	r = FS_Read(&len, 4, clc.demofile);
-	len = LittleLong(len);
-	if(r != 4 || len != 0) {
-		CL_DemoCompleted();
-		free(s2);
-		return;
-	}
-
-	r = FS_Read(&len, 4, clc.demofile);
-	len = LittleLong(len);
-	if(r != 4 || len != 0) {
-		CL_DemoCompleted();
-		return;
-	}
-#endif
 
 	clc.state = CA_CONNECTED;
 	clc.demoplaying = qtrue;
@@ -1376,7 +1287,6 @@ memory on the hunk from cgame, ui, and renderer
 =====================
 */
 void CL_MapLoading( void ) {
-  
 	if ( com_dedicated->integer ) {
 		clc.state = CA_DISCONNECTED;
 		Key_SetCatcher( KEYCATCH_CONSOLE );
@@ -1472,8 +1382,6 @@ This is also called on Com_Error and Com_Quit, so it shouldn't cause any errors
 =====================
 */
 void CL_Disconnect( qboolean showMainMenu ) {
-	int i;
-	
 	if ( !com_cl_running || !com_cl_running->integer ) {
 		return;
 	}
@@ -1538,9 +1446,9 @@ void CL_Disconnect( qboolean showMainMenu ) {
 	// send it a few times in case one is dropped
 	if ( clc.state >= CA_CONNECTED ) {
 		CL_AddReliableCommand("disconnect", qtrue);
-		for(i = 0; i < 3; i++){
-		    CL_WritePacket();
-		}
+		CL_WritePacket();
+		CL_WritePacket();
+		CL_WritePacket();
 	}
 	
 	// Remove pure paks
@@ -1762,7 +1670,6 @@ CL_Disconnect_f
 */
 void CL_Disconnect_f( void ) {
 	SCR_StopCinematic();
-	Con_Close();
 	Cvar_Set("ui_singlePlayerActive", "0");
 	if ( clc.state != CA_DISCONNECTED && clc.state != CA_CINEMATIC ) {
 		Com_Error (ERR_DISCONNECT, "Disconnected from server");
@@ -1875,7 +1782,6 @@ void CL_Connect_f( void ) {
 
 	// server connection string
 	Cvar_Set( "cl_currentServerAddress", server );
-	
 }
 
 #define MAX_RCON_MESSAGE 1024
@@ -2284,12 +2190,8 @@ void CL_NextDownload(void)
 			*s++ = 0;
 		else
 			s = localName + strlen(localName); // point at the nul byte
-			
-		if(!(cl_autodownload->integer)){
-				Com_Error(ERR_DROP, "Downloads are disabled. Set cl_autodownload to 1 to continue.");
-		}
 #ifdef USE_CURL
-		if(!(cl_autodownload->integer & DLF_NO_REDIRECT)) {
+		if(!(cl_allowDownload->integer & DLF_NO_REDIRECT)) {
 			if(clc.sv_allowDownload & DLF_NO_REDIRECT) {
 				Com_Printf("WARNING: server does not "
 					"allow download redirection "
@@ -2314,16 +2216,16 @@ void CL_NextDownload(void)
 		else if(!(clc.sv_allowDownload & DLF_NO_REDIRECT)) {
 			Com_Printf("WARNING: server allows download "
 				"redirection, but it disabled by client "
-				"configuration (cl_autodownload is %d)\n",
-				cl_autodownload->integer);
+				"configuration (cl_allowDownload is %d)\n",
+				cl_allowDownload->integer);
 		}
 #endif /* USE_CURL */
 		if(!useCURL) {
-			if((cl_autodownload->integer & DLF_NO_UDP)) {
+			if((cl_allowDownload->integer & DLF_NO_UDP)) {
 				Com_Error(ERR_DROP, "UDP Downloads are "
 					"disabled on your client. "
-					"(cl_autodownload is %d)",
-					cl_autodownload->integer);
+					"(cl_allowDownload is %d)",
+					cl_allowDownload->integer);
 				return;	
 			}
 			else {
@@ -2352,7 +2254,7 @@ and determine if we need to download them
 void CL_InitDownloads(void) {
   char missingfiles[1024];
 
-  if ( !(cl_autodownload->integer & DLF_ENABLE) )
+  if ( !(cl_allowDownload->integer & DLF_ENABLE) )
   {
     // autodownload is disabled on the client
     // but it's possible that some referenced files on the server are missing
@@ -2886,12 +2788,6 @@ void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 		return;
 	}
 
-#ifdef USE_AUTH
-	if(strstr(c, "AUTH:CL")) {
-		VM_Call(uivm, UI_AUTHSERVER_PACKET, from);
-		return;
-	}
-#endif
 	Com_DPrintf ("Unknown connectionless packet command.\n");
 }
 
@@ -3296,7 +3192,7 @@ void CL_InitRef( void ) {
 	char			dllName[MAX_OSPATH];
 #endif
 
-	Com_DPrintf( "----- Initializing Renderer ----\n" );
+	Com_Printf( "----- Initializing Renderer ----\n" );
 
 #ifdef USE_RENDERER_DLOPEN
 	cl_renderer = Cvar_Get("cl_renderer", "opengl1", CVAR_ARCHIVE | CVAR_LATCH);
@@ -3383,7 +3279,7 @@ void CL_InitRef( void ) {
 	hA3Dg_ExportRenderGeom (ret);
 #endif
 
-	Com_DPrintf( "-------------------------------\n");
+	Com_Printf( "-------------------------------\n");
 
 	if ( !ret ) {
 		Com_Error (ERR_FATAL, "Couldn't initialize refresh" );
@@ -3502,7 +3398,7 @@ static void CL_GenerateQKey(void)
 	len = FS_SV_FOpenFileRead( QKEY_FILE, &f );
 	FS_FCloseFile( f );
 	if( len == QKEY_SIZE ) {
-		Com_DPrintf( "QKEY found.\n" );
+		Com_Printf( "QKEY found.\n" );
 		return;
 	}
 	else {
@@ -3511,7 +3407,7 @@ static void CL_GenerateQKey(void)
 				QKEY_SIZE );
 		}
 
-		Com_DPrintf( "QKEY building random string\n" );
+		Com_Printf( "QKEY building random string\n" );
 		Com_RandomBytes( buff, sizeof(buff) );
 
 		f = FS_SV_FOpenFileWrite( QKEY_FILE );
@@ -3522,7 +3418,7 @@ static void CL_GenerateQKey(void)
 		}
 		FS_Write( buff, sizeof(buff), f );
 		FS_FCloseFile( f );
-		Com_DPrintf( "QKEY generated\n" );
+		Com_Printf( "QKEY generated\n" );
 	}
 } 
 
@@ -3532,7 +3428,7 @@ CL_Init
 ====================
 */
 void CL_Init( void ) {
-	Com_DPrintf( "----- Client Initialization -----\n" );
+	Com_Printf( "----- Client Initialization -----\n" );
 
 	Con_Init ();
 
@@ -3571,8 +3467,6 @@ void CL_Init( void ) {
 	cl_aviFrameRate = Cvar_Get ("cl_aviFrameRate", "25", CVAR_ARCHIVE);
 	cl_aviMotionJpeg = Cvar_Get ("cl_aviMotionJpeg", "1", CVAR_ARCHIVE);
 	cl_forceavidemo = Cvar_Get ("cl_forceavidemo", "0", 0);
-	cl_recordfontsize = Cvar_Get ("cl_recordfontsize","14",0);
-	
 
 	rconAddress = Cvar_Get ("rconAddress", "", 0);
 
@@ -3580,8 +3474,8 @@ void CL_Init( void ) {
 	cl_pitchspeed = Cvar_Get ("cl_pitchspeed", "140", CVAR_ARCHIVE);
 	cl_anglespeedkey = Cvar_Get ("cl_anglespeedkey", "1.5", 0);
 
-	sacc_maxpackets = Cvar_Get ("cl_maxpackets", "60", CVAR_ARCHIVE );
-	sacc_packetdup = Cvar_Get ("cl_packetdup", "1", CVAR_ARCHIVE );
+	cl_maxpackets = Cvar_Get ("cl_maxpackets", "30", CVAR_ARCHIVE );
+	cl_packetdup = Cvar_Get ("cl_packetdup", "1", CVAR_ARCHIVE );
 
 	cl_run = Cvar_Get ("cl_run", "1", CVAR_ARCHIVE);
 	cl_sensitivity = Cvar_Get ("sensitivity", "5", CVAR_ARCHIVE);
@@ -3598,7 +3492,7 @@ void CL_Init( void ) {
 
 	cl_showMouseRate = Cvar_Get ("cl_showmouserate", "0", 0);
 
-	cl_autodownload = Cvar_Get ("cl_autodownload", "0", CVAR_ARCHIVE);
+	cl_allowDownload = Cvar_Get ("cl_allowDownload", "0", CVAR_ARCHIVE);
 #ifdef USE_CURL_DLOPEN
 	cl_cURLLib = Cvar_Get("cl_cURLLib", DEFAULT_CURL_LIB, CVAR_ARCHIVE);
 #endif
@@ -3653,20 +3547,13 @@ void CL_Init( void ) {
 	cl_lanForcePackets = Cvar_Get ("cl_lanForcePackets", "1", CVAR_ARCHIVE);
 
 	cl_guidServerUniq = Cvar_Get ("cl_guidServerUniq", "1", CVAR_ARCHIVE);
-	cl_altTab = Cvar_Get("cl_altTab", "1", CVAR_ARCHIVE);
 
 	// ~ and `, as keys and characters
 	cl_consoleKeys = Cvar_Get( "cl_consoleKeys", "~ ` 0x7e 0x60", CVAR_ARCHIVE);
 
-#ifdef USE_AUTH
-	cl_auth_engine = Cvar_Get("cl_auth_engine", "1", CVAR_TEMP | CVAR_ROM);
-	cl_auth = Cvar_Get("cl_auth", "0", CVAR_TEMP | CVAR_ROM);
-	cl_authc = Cvar_Get("cl_authc", "0", CVAR_TEMP | CVAR_USERINFO);
-#endif
 	// userinfo
 	Cvar_Get ("name", "UnnamedPlayer", CVAR_USERINFO | CVAR_ARCHIVE );
-	Cvar_Get ("sacc_rate", "30000", CVAR_USERINFO | CVAR_ARCHIVE );
-	Cvar_Get ("rate", "30000", CVAR_USERINFO | CVAR_ARCHIVE );
+	Cvar_Get ("rate", "25000", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("snaps", "20", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("model", "sarge", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("headmodel", "sarge", CVAR_USERINFO | CVAR_ARCHIVE );
@@ -3761,7 +3648,7 @@ void CL_Init( void ) {
 	Cvar_Get( "cl_guid", "", CVAR_USERINFO | CVAR_ROM );
 	CL_UpdateGUID( NULL, 0 );
 
-	Com_DPrintf( "----- Client Initialization Complete -----\n" );
+	Com_Printf( "----- Client Initialization Complete -----\n" );
 }
 
 

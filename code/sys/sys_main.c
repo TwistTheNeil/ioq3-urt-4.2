@@ -140,7 +140,7 @@ Sys_PIDFileName
 */
 static char *Sys_PIDFileName( void )
 {
-	const char *homePath = Sys_TempPath( );
+	const char *homePath = Sys_DefaultHomePath( );
 
 	if( *homePath != '\0' )
 		return va( "%s/%s", homePath, PID_FILENAME );

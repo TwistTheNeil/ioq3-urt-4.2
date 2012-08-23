@@ -470,7 +470,7 @@ void S_Init( void )
 	cvar_t		*cv;
 	qboolean	started = qfalse;
 
-	Com_DPrintf( "------ Initializing Sound ------\n" );
+	Com_Printf( "------ Initializing Sound ------\n" );
 
 	s_volume = Cvar_Get( "s_volume", "0.8", CVAR_ARCHIVE );
 	s_musicVolume = Cvar_Get( "s_musicvolume", "0.25", CVAR_ARCHIVE );
@@ -512,19 +512,13 @@ void S_Init( void )
 			}
 
 			S_SoundInfo( );
-
-			Com_DPrintf( "Pre-caching sounds.\n" );
-			S_sfx_precache();
-
-			Com_DPrintf( "Sound initialization successful.\n" );
+			Com_Printf( "Sound initialization successful.\n" );
 		} else {
 			Com_Printf( "Sound initialization failed.\n" );
 		}
 	}
 
-	Com_DPrintf( "--------------------------------\n");
-
-	s_envSoundEnable = Cvar_Get("s_envSoundEnable", "1", CVAR_ARCHIVE);
+	Com_Printf( "--------------------------------\n");
 }
 
 /*
@@ -550,47 +544,3 @@ void S_Shutdown( void )
 	S_CodecShutdown( );
 }
 
-// from Mitsubishi
-void S_sfx_precache(void)
-{
-	char dirlist[8192], filename[1024], *dirptr;
-	int numdirs, dirlen, i;
-
-	numdirs = FS_GetFileList("sound/radio/female", ".wav", dirlist, 8192);
-	dirptr = dirlist;
-
-	for(i = 0; i < numdirs; i++, dirptr += dirlen + 1) {
-		dirlen = strlen(dirptr);
-		strcpy(filename, "sound/radio/female/");
-		strcat(filename, dirptr);
-		S_RegisterSound(filename, qfalse);
-	}
-
-	numdirs = FS_GetFileList("sound/radio/male", ".wav", dirlist, 8192);
-	dirptr = dirlist;
-
-	for(i = 0; i < numdirs; i++, dirptr += dirlen + 1) {
-		dirlen = strlen(dirptr);
-		strcpy(filename, "sound/radio/male/");
-		strcat(filename, dirptr);
-		S_RegisterSound(filename, qfalse);
-	}
-
-	S_RegisterSound("sound/misc/kcaction.wav", qfalse);
-	S_RegisterSound("sound/player/ledgegrab.wav", qfalse);
-	S_RegisterSound("sound/surfaces/bullets/water1.wav", qfalse);
-	S_RegisterSound("sound/items/nvgoff.wav", qfalse);
-	S_RegisterSound("sound/items/nvgon.wav", qfalse);
-	S_RegisterSound("sound/items/flashlight.wav", qfalse);
-	S_RegisterSound("sound/items/laseronoff.wav", qfalse);
-	S_RegisterSound("sound/weapons/beretta/92G_noammo.wav", qfalse);
-	S_RegisterSound("sound/bomb/Bomb_disarm.wav", qfalse);
-	S_RegisterSound("sound/bomb/Explode01.wav", qfalse);
-	S_RegisterSound("sound/misc/blast_wind.wav", qfalse);
-	S_RegisterSound("sound/misc/blast_fire.wav", qfalse);
-	S_RegisterSound("sound/bandage.wav", qfalse);
-	S_RegisterSound("sound/urban_terror/Piano_Section.wav", qfalse);
-	S_RegisterSound("sound/ctf/capture-blue.wav", qfalse);
-	S_RegisterSound("sound/ctf/capture-red.wav", qfalse);
-	
-}

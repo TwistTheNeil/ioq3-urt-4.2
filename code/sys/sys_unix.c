@@ -39,9 +39,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <fenv.h>
 #include <sys/wait.h>
 
-#define MAX_CMD 1024
-char exit_cmdline[MAX_CMD];
-
 qboolean stdinIsATTY;
 
 // Used to determine where to store user-specific files
@@ -80,23 +77,6 @@ char *Sys_DefaultHomePath(void)
 
 	return homePath;
 }
-
-#ifndef MACOS_X
-/*
-================
-Sys_TempPath
-================
-*/
-const char *Sys_TempPath( void )
-{
-	const char *TMPDIR = getenv( "TMPDIR" );
-
-	if( TMPDIR == NULL || TMPDIR[ 0 ] == '\0' )
-		return "/tmp";
-	else
-		return TMPDIR;
-}
-#endif
 
 /*
 ================
@@ -884,83 +864,3 @@ qboolean Sys_PIDIsRunning( int pid )
 {
 	return kill( pid, 0 ) == 0;
 }
-
-#ifdef USE_AUTH
-// fyi - this shit is crazy bad. no sanity checking?
-
-void Sys_DoStartProcess(char *cmdline)
-{
-// XXX: disabled until it matures (possible security risks)
-	return;
-///////////////////////////
-	switch(fork()) {
-		case -1: break;
-		case 0:
-			if(strchr(cmdline, ' ')) {
-				system(cmdline);
-			} else {
-				execl(cmdline, cmdline, NULL);
-				printf("execl failed: %s\n", strerror(errno));
-			}
-
-			_exit(0);
-			break;
-	}
-}
-
-void Sys_StartProcess(char *cmdline, qboolean doexit)
-{
-	if(doexit) {
-		Com_DPrintf("Sys_StartProcess %s (delaying to final exit)\n", cmdline);
-		Q_strncpyz(exit_cmdline, cmdline, MAX_CMD);
-		Cbuf_ExecuteText(EXEC_APPEND, "quit\n");
-		return;
-	}
-
-	Com_DPrintf("Sys_StartProcess %s\n", cmdline);
-	Sys_DoStartProcess(cmdline);
-}
-
-void Sys_OpenURL(const char *url, qboolean doexit)
-{
-	char fname[20], fn[MAX_OSPATH];
-	char cmdline[MAX_CMD], *basename[3];
-	int i, r;
-
-	static qboolean doexit_spamguard = qfalse;
-
-// XXX: diRf: disabled until it matures (possible security risks)
-	return;
-//////////////////////////
-	if(doexit_spamguard) {
-		Com_DPrintf("Sys_OpenURL: already in a doexit sequence, ignoring %s\n", url);
-		return;
-	}
-
-	Com_Printf("Open URL: %s\n", url);
-
-	basename[0] = Sys_Cwd();
-	basename[1] = Cvar_VariableString("fs_homepath");
-	basename[2] = Cvar_VariableString("fs_basepath");
-
-	for(i = 0; i < 3; i++) {
-		Com_sprintf(fn, MAX_OSPATH, "%s/%s", basename[i], fname);
-		r = access(fn, X_OK);
-
-		if(r != -1) break;
-	}
-
-	if(r == -1) {
-		Com_DPrintf("%s not found\n", fn);
-		Com_Printf("Can't find script '%s' to open requested URL (use +set developer 1 for more verbosity)\n", fname);
-		return;
-	}
-
-	if(doexit) doexit_spamguard = qtrue;
-
-	Com_DPrintf("URL script: %s\n", fn);
-	
-	Com_sprintf(cmdline, MAX_CMD, "%s '%s' &", fn, url);
-	Sys_StartProcess(cmdline, doexit);
-}
-#endif

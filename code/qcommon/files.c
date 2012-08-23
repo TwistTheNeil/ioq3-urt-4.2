@@ -187,10 +187,6 @@ static const unsigned int pak_checksums[] = {
 	977125798u
 };
 
-// hobbes - really ugly to include those arrays like that...and here
-#include "basepakheaders.h"
-static int pak_purechecksums[1];
-
 static const unsigned int missionpak_checksums[] =
 {
 	2430342401u,
@@ -1055,23 +1051,21 @@ qboolean FS_IsDemoExt(const char *filename, int namelen)
 	ext_test = strrchr(filename, '.');
 	if(ext_test && !Q_stricmpn(ext_test + 1, DEMOEXT, ARRAY_LEN(DEMOEXT) - 1))
 	{
-#ifndef URT42
 		protocol = atoi(ext_test + ARRAY_LEN(DEMOEXT));
 
 		if(protocol == com_protocol->integer)
 			return qtrue;
 
-        if(protocol == com_legacyprotocol->integer)
-            return qtrue;
+#ifdef LEGACY_PROTOCOL
+                if(protocol == com_legacyprotocol->integer)
+                        return qtrue;
+#endif
 
 		for(index = 0; demo_protocols[index]; index++)
 		{
 			if(demo_protocols[index] == protocol)
 			return qtrue;
 		}
-#else
-		return qtrue;
-#endif
 	}
 
 	return qfalse;
@@ -2702,27 +2696,27 @@ void FS_Path_f( void ) {
 	searchpath_t	*s;
 	int				i;
 
-	Com_DPrintf ("Current search path:\n");
+	Com_Printf ("Current search path:\n");
 	for (s = fs_searchpaths; s; s = s->next) {
 		if (s->pack) {
-			Com_DPrintf ("%s (%i files)\n", s->pack->pakFilename, s->pack->numfiles);
+			Com_Printf ("%s (%i files)\n", s->pack->pakFilename, s->pack->numfiles);
 			if ( fs_numServerPaks ) {
 				if ( !FS_PakIsPure(s->pack) ) {
-					Com_DPrintf( "    not on the pure list\n" );
+					Com_Printf( "    not on the pure list\n" );
 				} else {
-					Com_DPrintf( "    on the pure list\n" );
+					Com_Printf( "    on the pure list\n" );
 				}
 			}
 		} else {
-			Com_DPrintf ("%s%c%s\n", s->dir->path, PATH_SEP, s->dir->gamedir );
+			Com_Printf ("%s%c%s\n", s->dir->path, PATH_SEP, s->dir->gamedir );
 		}
 	}
 
 
-	Com_DPrintf( "\n" );
+	Com_Printf( "\n" );
 	for ( i = 1 ; i < MAX_FILE_HANDLES ; i++ ) {
 		if ( fsh[i].handleFiles.file.o ) {
-			Com_DPrintf( "handle %i: %s\n", i, fsh[i].name );
+			Com_Printf( "handle %i: %s\n", i, fsh[i].name );
 		}
 	}
 }
@@ -2760,12 +2754,12 @@ qboolean FS_Which(const char *filename, void *searchPath)
 	{
 		if(search->pack)
 		{
-			Com_DPrintf("File \"%s\" found in \"%s\"\n", filename, search->pack->pakFilename);
+			Com_Printf("File \"%s\" found in \"%s\"\n", filename, search->pack->pakFilename);
 			return qtrue;
 		}
 		else if(search->dir)
 		{
-			Com_DPrintf( "File \"%s\" found at \"%s\"\n", filename, search->dir->fullpath);
+			Com_Printf( "File \"%s\" found at \"%s\"\n", filename, search->dir->fullpath);
 			return qtrue;
 		}
 	}
@@ -3151,7 +3145,7 @@ static void FS_Startup( const char *gameName )
 {
 	const char *homePath;
 
-	Com_DPrintf( "----- FS_Startup -----\n" );
+	Com_Printf( "----- FS_Startup -----\n" );
 
 	fs_packFiles = 0;
 
@@ -3163,7 +3157,7 @@ static void FS_Startup( const char *gameName )
 		homePath = fs_basepath->string;
 	}
 	fs_homepath = Cvar_Get ("fs_homepath", homePath, CVAR_INIT|CVAR_PROTECTED );
-	fs_gamedirvar = Cvar_Get ("fs_game", "q3ut4", CVAR_INIT|CVAR_SYSTEMINFO );
+	fs_gamedirvar = Cvar_Get ("fs_game", "", CVAR_INIT|CVAR_SYSTEMINFO );
 
 	// add search path elements in reverse priority order
 	if (fs_basepath->string[0]) {
@@ -3233,14 +3227,14 @@ static void FS_Startup( const char *gameName )
 
 	fs_gamedirvar->modified = qfalse; // We just loaded, it's not modified
 
-	Com_DPrintf( "----------------------\n" );
+	Com_Printf( "----------------------\n" );
 
 #ifdef FS_MISSING
 	if (missingFiles == NULL) {
 		missingFiles = fopen( "\\missing.txt", "ab" );
 	}
 #endif
-	Com_DPrintf( "%d files in pk3 files\n", fs_packFiles );
+	Com_Printf( "%d files in pk3 files\n", fs_packFiles );
 }
 
 #ifndef STANDALONE
@@ -3258,6 +3252,187 @@ STANDALONE in q_shared.h
 */
 static void FS_CheckPak0( void )
 {
+	searchpath_t	*path;
+	pack_t		*curpack;
+	qboolean founddemo = qfalse;
+	unsigned int foundPak = 0, foundTA = 0;
+
+	for( path = fs_searchpaths; path; path = path->next )
+	{
+		const char* pakBasename = path->pack->pakBasename;
+
+		if(!path->pack)
+			continue;
+		
+		curpack = path->pack;
+
+		if(!Q_stricmpn( curpack->pakGamename, "demoq3", MAX_OSPATH )
+		   && !Q_stricmpn( pakBasename, "pak0", MAX_OSPATH ))
+		{
+			if(curpack->checksum == DEMO_PAK0_CHECKSUM)
+				founddemo = qtrue;
+		}
+
+		else if(!Q_stricmpn( curpack->pakGamename, BASEGAME, MAX_OSPATH )
+			&& strlen(pakBasename) == 4 && !Q_stricmpn( pakBasename, "pak", 3 )
+			&& pakBasename[3] >= '0' && pakBasename[3] <= '0' + NUM_ID_PAKS - 1)
+		{
+			if( curpack->checksum != pak_checksums[pakBasename[3]-'0'] )
+			{
+				if(pakBasename[3] == '0')
+				{
+					Com_Printf("\n\n"
+						"**************************************************\n"
+						"WARNING: " BASEGAME "/pak0.pk3 is present but its checksum (%u)\n"
+						"is not correct. Please re-copy pak0.pk3 from your\n"
+						"legitimate Q3 CDROM.\n"
+						"**************************************************\n\n\n",
+						curpack->checksum );
+				}
+				else
+				{
+					Com_Printf("\n\n"
+						"**************************************************\n"
+						"WARNING: " BASEGAME "/pak%d.pk3 is present but its checksum (%u)\n"
+						"is not correct. Please re-install the point release\n"
+						"**************************************************\n\n\n",
+						pakBasename[3]-'0', curpack->checksum );
+				}
+			}
+
+			foundPak |= 1<<(pakBasename[3]-'0');
+		}
+		else if(!Q_stricmpn(curpack->pakGamename, BASETA, MAX_OSPATH)
+			&& strlen(pakBasename) == 4 && !Q_stricmpn(pakBasename, "pak", 3)
+			&& pakBasename[3] >= '0' && pakBasename[3] <= '0' + NUM_TA_PAKS - 1)
+			
+		{
+			if(curpack->checksum != missionpak_checksums[pakBasename[3]-'0'])
+			{
+				Com_Printf("\n\n"
+					"**************************************************\n"
+					"WARNING: " BASETA "/pak%d.pk3 is present but its checksum (%u)\n"
+					"is not correct. Please re-install Team Arena\n"
+					"**************************************************\n\n\n",
+					pakBasename[3]-'0', curpack->checksum );				
+			}
+			
+			foundTA |= 1 << (pakBasename[3]-'0');
+		}
+		else
+		{
+			int index;
+			
+			// Finally check whether this pak's checksum is listed because the user tried
+			// to trick us by renaming the file, and set foundPak's highest bit to indicate this case.
+			
+			for(index = 0; index < ARRAY_LEN(pak_checksums); index++)
+			{
+				if(curpack->checksum == pak_checksums[index])
+				{
+					Com_Printf("\n\n"
+						"**************************************************\n"
+						"WARNING: %s is renamed pak file %s%cpak%d.pk3\n"
+						"Running in standalone mode won't work\n"
+						"Please rename, or remove this file\n"
+						"**************************************************\n\n\n",
+						curpack->pakFilename, BASEGAME, PATH_SEP, index);
+
+
+					foundPak |= 0x80000000;
+				}
+			}
+
+			for(index = 0; index < ARRAY_LEN(missionpak_checksums); index++)
+			{
+				if(curpack->checksum == missionpak_checksums[index])
+				{
+					Com_Printf("\n\n"
+						"**************************************************\n"
+						"WARNING: %s is renamed pak file %s%cpak%d.pk3\n"
+						"Running in standalone mode won't work\n"
+						"Please rename, or remove this file\n"
+						"**************************************************\n\n\n",
+						curpack->pakFilename, BASETA, PATH_SEP, index);
+
+					foundTA |= 0x80000000;
+				}
+			}
+		}
+	}
+
+	if(!foundPak && !foundTA && Q_stricmp(com_basegame->string, BASEGAME))
+	{
+		Cvar_Set("com_standalone", "1");
+	}
+	else
+		Cvar_Set("com_standalone", "0");
+
+	if(!com_standalone->integer)
+	{
+		if(!(foundPak & 0x01))
+		{
+			if(founddemo)
+			{
+				Com_Printf( "\n\n"
+						"**************************************************\n"
+						"WARNING: It looks like you're using pak0.pk3\n"
+						"from the demo. This may work fine, but it is not\n"
+						"guaranteed or supported.\n"
+						"**************************************************\n\n\n" );
+				
+				foundPak |= 0x01;
+			}
+		}
+	}
+
+
+	if(!com_standalone->integer && (foundPak & 0x1ff) != 0x1ff)
+	{
+		char errorText[MAX_STRING_CHARS] = "";
+
+		if((foundPak & 0x01) != 0x01)
+		{
+			Q_strcat(errorText, sizeof(errorText),
+				"\"pak0.pk3\" is missing. Please copy it "
+				"from your legitimate Q3 CDROM. ");
+		}
+
+		if((foundPak & 0x1fe) != 0x1fe)
+		{
+			Q_strcat(errorText, sizeof(errorText),
+				"Point Release files are missing. Please "
+				"re-install the 1.32 point release. ");
+		}
+
+		Q_strcat(errorText, sizeof(errorText),
+			va("Also check that your ioq3 executable is in "
+			"the correct place and that every file "
+			"in the \"%s\" directory is present and readable", BASEGAME));
+
+		Com_Error(ERR_FATAL, "%s", errorText);
+	}
+	
+	if(!com_standalone->integer && foundTA && (foundTA & 0x0f) != 0x0f)
+	{
+		char errorText[MAX_STRING_CHARS] = "";
+
+		if((foundTA & 0x01) != 0x01)
+		{
+			Com_sprintf(errorText, sizeof(errorText),
+				"\"" BASETA "%cpak0.pk3\" is missing. Please copy it "
+				"from your legitimate Quake 3 Team Arena CDROM. ", PATH_SEP);
+		}
+
+		if((foundTA & 0x0e) != 0x0e)
+		{
+			Q_strcat(errorText, sizeof(errorText),
+				"Team Arena Point Release files are missing. Please "
+				"re-install the latest Team Arena point release.");
+		}
+
+		Com_Error(ERR_FATAL, "%s", errorText);
+	}
 }
 #endif
 
@@ -3272,8 +3447,6 @@ Servers with sv_pure set will get this string and pass it to clients.
 const char *FS_LoadedPakChecksums( void ) {
 	static char	info[BIG_INFO_STRING];
 	searchpath_t	*search;
-	qboolean found;
-	int i;
 
 	info[0] = 0;
 
@@ -3284,22 +3457,6 @@ const char *FS_LoadedPakChecksums( void ) {
 		}
 
 		Q_strcat( info, sizeof( info ), va("%i ", search->pack->checksum ) );
-	}
-
-	for(i = 0; i < 1; i++) {
-		found = qfalse;
-
-		for(search = fs_searchpaths; search; search = search->next) {
-			if(!search->pack) continue;
-
-			if(!strcmp(search->pack->pakBasename, va("pak%i", i))) {
-				found = qtrue;
-				continue;
-			}
-		}
-
-		if(!found)
-			Q_strcat(info, sizeof(info), va("%i ", pak_checksums[i]));
 	}
 
 	return info;
@@ -3316,8 +3473,6 @@ Servers with sv_pure set will get this string and pass it to clients.
 const char *FS_LoadedPakNames( void ) {
 	static char	info[BIG_INFO_STRING];
 	searchpath_t	*search;
-	qboolean found;
-	int i;
 
 	info[0] = 0;
 
@@ -3331,24 +3486,6 @@ const char *FS_LoadedPakNames( void ) {
 			Q_strcat(info, sizeof( info ), " " );
 		}
 		Q_strcat( info, sizeof( info ), search->pack->pakBasename );
-	}
-
-	for(i = 0; i < 1; i++) {
-		found = qfalse;
-
-		for(search = fs_searchpaths; search; search = search->next) {
-			if(!search->pack) continue;
-
-			if(!strcmp(search->pack->pakBasename, va("pak%i", i))) {
-				found = qtrue;
-				continue;
-			}
-		}
-
-		if(!found) {
-			if(*info) Q_strcat(info, sizeof(info), " ");
-			Q_strcat(info, sizeof(info), va("pak%i", i));
-		}
 	}
 
 	return info;
@@ -3366,8 +3503,6 @@ back to the server.
 const char *FS_LoadedPakPureChecksums( void ) {
 	static char	info[BIG_INFO_STRING];
 	searchpath_t	*search;
-	qboolean found;
-	int i;
 
 	info[0] = 0;
 
@@ -3378,23 +3513,6 @@ const char *FS_LoadedPakPureChecksums( void ) {
 		}
 
 		Q_strcat( info, sizeof( info ), va("%i ", search->pack->pure_checksum ) );
-	}
-
-	for(i = 0; i < 1; i++) {
-		found = qfalse;
-
-		for(search = fs_searchpaths; search; search = search->next) {
-			if(!search->pack) continue;
-
-			if(!strcmp(search->pack->pakBasename, va("pak%i", i))) {
-				found = qtrue;
-				continue;
-			}
-		}
-
-		if(!found) {
-			Q_strcat(info, sizeof(info), va("pak%i", pak_purechecksums[i]));
-		}
 	}
 
 	return info;
@@ -3418,7 +3536,7 @@ const char *FS_ReferencedPakChecksums( void ) {
 	for ( search = fs_searchpaths ; search ; search = search->next ) {
 		// is the element a pak file?
 		if ( search->pack ) {
-			if (search->pack->referenced) {
+			if (search->pack->referenced || Q_stricmpn(search->pack->pakGamename, com_basegame->string, strlen(com_basegame->string))) {
 				Q_strcat( info, sizeof( info ), va("%i ", search->pack->checksum ) );
 			}
 		}
@@ -3493,7 +3611,7 @@ const char *FS_ReferencedPakNames( void ) {
 	for ( search = fs_searchpaths ; search ; search = search->next ) {
 		// is the element a pak file?
 		if ( search->pack ) {
-			if (search->pack->referenced) {
+			if (search->pack->referenced || Q_stricmpn(search->pack->pakGamename, com_basegame->string, strlen(com_basegame->string))) {
 				if (*info) {
 					Q_strcat(info, sizeof( info ), " " );
 				}
@@ -3677,27 +3795,6 @@ void FS_InitFilesystem( void ) {
 	Q_strncpyz(lastValidGame, fs_gamedirvar->string, sizeof(lastValidGame));
 }
 
-/*
-================
-FS_CalculateBasePakPureChecksums
-
-Called on each restart, calculates the pure sums for non-exsistent base paks
-================
-*/
-void FS_CalculateBasePakPureChecksums(void)
-{
-	char *buffer;
-	int i;
-
-	for(i = 0; i < 1; i++) {
-		buffer = Z_Malloc(pak_headers_len[i]);
-		Com_Memcpy(buffer, pak_headers[i], pak_headers_len[i]);
-		((int *) buffer)[0] = LittleLong(fs_checksumFeed);
-		pak_purechecksums[i] = Com_BlockChecksum(buffer, pak_headers_len[i]);
-		pak_purechecksums[i] = LittleLong(pak_purechecksums[i]);
-		Z_Free(buffer);
-	}
-}
 
 /*
 ================
@@ -3711,9 +3808,6 @@ void FS_Restart( int checksumFeed ) {
 
 	// set the checksum feed
 	fs_checksumFeed = checksumFeed;
-
-	// calculate pure checksums
-	FS_CalculateBasePakPureChecksums();
 
 	// clear pak references
 	FS_ClearPakReferences(0);

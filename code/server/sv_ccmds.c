@@ -31,57 +31,6 @@ These commands can only be entered from stdin or by a remote operator datagram
 ===============================================================================
 */
 
-/*
-Reusable version of SV_GetPlayerByHandle() that doesn't
-print any silly messages.
-*/
-client_t *SV_BetterGetPlayerByHandle(const char *handle)
-{
-	client_t	*cl;
-	int		i;
-	char		cleanName[64];
-
-	// make sure server is running
-	if ( !com_sv_running->integer ) {
-		return NULL;
-	}
-
-	// Check whether this is a numeric player handle
-	for(i = 0; handle[i] >= '0' && handle[i] <= '9'; i++);
-
-	if(!handle[i])
-	{
-		int plid = atoi(handle);
-
-		// Check for numeric playerid match
-		if(plid >= 0 && plid < sv_maxclients->integer)
-		{
-			cl = &svs.clients[plid];
-
-			if(cl->state)
-				return cl;
-		}
-	}
-
-	// check for a name match
-	for ( i=0, cl=svs.clients ; i < sv_maxclients->integer ; i++,cl++ ) {
-		if ( !cl->state ) {
-			continue;
-		}
-		if ( !Q_stricmp( cl->name, handle ) ) {
-			return cl;
-		}
-
-		Q_strncpyz( cleanName, cl->name, sizeof(cleanName) );
-		Q_CleanStr( cleanName );
-		if ( !Q_stricmp( cleanName, handle ) ) {
-			return cl;
-		}
-	}
-
-	return NULL;
-}
-
 
 /*
 ==================
@@ -268,106 +217,6 @@ static void SV_Map_f( void ) {
 		Cvar_Set( "sv_cheats", "0" );
 	}
 }
-
-#ifdef USE_AUTH
-/*
-==================
-SV_PP_Cmd_Argc_to_idnum
-
-@Barbatos: wow this one looks horrible, FIXME!
-==================
-*/
-static int SV_Argc_to_idnum( int arg_num ) {
-	client_t	*cl;
-	int			idnum;
-	int			i, k, f, g;
-	int			len, nlen, slen;
-	int			count;
-	char		*search;
-	char		*name;
-
-	// make sure server is running
-	if ( !com_sv_running->integer ) {
-		return -1;
-	}
-
-	if ( Cmd_Argc() < 1 ) {
-		Com_Printf( "No player specified.\n" );
-		return -1;
-	}
-
-	search = Cmd_Argv( arg_num );
-	
-	if(strlen( search ) < 3 )
-	{
-		for (i = 0; search[i]; i++) {
-			if (search[i] < '0' || search[i] > '9') {
-				Com_Printf( "Bad slot number: \"%s\".\n", search);
-				return -1;
-			}
-		}
-		idnum = atoi( search );
-		if ( idnum < 0 || idnum >= sv_maxclients->integer ) {
-			Com_Printf( "Bad client slot: %i.\n", idnum );
-			return -1;
-		}
-
-		cl = &svs.clients[idnum];
-		if ( !cl->state ) {
-			Com_Printf( "Client %i is not active.\n", idnum );
-			return -1;
-		}
-		return idnum;
-	}
-	else
-	{
-		f = 0; g = 0;
-		count = 0;
-		idnum = -1;
-		slen = strlen(search);
-		for (i=0,cl=svs.clients ; i < sv_maxclients->integer ; i++,cl++) {
-			if ( cl->state >= CS_CONNECTED ) {
-				name = cl->name;
-				nlen = strlen(name);
-				len = nlen - slen;
-				if(len>=0) {
-					for (k=0; k<=len; k++, name++) {
-						if( toupper(name[0])==toupper(search[0]) ) {
-							for (g=1,f=1; search[f] && name[g]; g++) {
-								if( Q_IsColorString( &name[g] ) ) {
-									g++;
-								} else {
-									if( toupper(name[g])!=toupper(search[f]) ) break;
-									f++;
-								}
-							}
-							if (f==slen) { 
-								count++; 
-								idnum = i; 
-								break; 
-							}
-						}
-					}
-				}
-			}
-		}
-		if( count == 1 ) { 
-			return idnum;
-		}
-		if( count > 0 ) { 
-			Com_Printf( "Too many players found for \"%s\".\n", search );
-			return -1;
-		}
-		if( count == 0 ) { 
-			Com_Printf( "No player found for \"%s\".\n", search );
-			return -1;
-		}
-	}
-	
-	return -1;
-}
-#endif
-
 
 /*
 ================
@@ -1363,7 +1212,7 @@ static void SV_ConSay_f(void) {
 		return;
 	}
 
-	strcpy (text, "console: ");
+	strcpy (text, sv_sayprefix->string);
 	p = Cmd_Args();
 
 	if ( *p == '"' ) {
@@ -1402,7 +1251,7 @@ static void SV_ConTell_f(void) {
 		return;
 	}
 
-	strcpy (text, "console_tell: ");
+	strcpy (text, sv_tellprefix->string);
 	p = Cmd_ArgsFrom(2);
 
 	if ( *p == '"' ) {
@@ -1508,119 +1357,6 @@ static void SV_CompleteMapName( char *args, int argNum ) {
 	}
 }
 
-//@Barbatos
-#ifdef USE_AUTH
-/*
-==================
-SV_Auth_Whois_f
-
-Get user infos
-==================
-*/
-static void SV_Auth_Whois_f( void ) {
-	client_t	*cl;
-	int		idnum = -1;
-	
-	// make sure server is running
-	if ( !com_sv_running->integer ) {
-		Com_Printf( "Server is not running.\n" );
-		return;
-	}
-	
-	if ( Cmd_Argc() < 2 ) {
-		Com_Printf ("Usage: auth-whois <client number|name>\n");
-		return;
-	}
-		
-	idnum = SV_Argc_to_idnum( 1 );
-	
-	if( idnum == -1 ) 
-		return;
-		
-	cl = &svs.clients[idnum];
-	
-	if ( !cl ) 
-		return;
-		
-	if ( Cvar_VariableValue("auth_enable") >= 1 ) 
-	{
-		VM_Call(gvm, GAME_AUTH_WHOIS, idnum);
-	}
-	else
-	{
-		Com_Printf( "Auth services disabled\n" );
-		return;
-	}
-}
-
-/*
-==================
-SV_Auth_Ban_f
-
-Ban a user from the server 
-and the group
-==================
-*/
-static void SV_Auth_Ban_f( void ) {
-	client_t	*cl;
-	int		idnum = -1;
-	int 	d, h, m;
-	char	*days;
-	char	*hours;
-	char	*mins;
-	
-	if ( !com_sv_running->integer ) {
-		Com_Printf( "Server is not running.\n" );
-		return;
-	}
-	
-	days = Cmd_Argv( 2 ); 
-	hours = Cmd_Argv( 3 );
-	mins = Cmd_Argv( 4 );
-	
-	if ( Cmd_Argc() < 5 ) {
-		Com_Printf ("Usage: auth-ban <client number|name> <days> <hours> <mins>\n");
-		return;
-	}
-	
-	idnum = SV_Argc_to_idnum( 1 );
-	
-	if( idnum == -1 ) 
-	{
-		Com_Printf("Client not found\n");
-		return;
-	}
-		
-	cl = &svs.clients[idnum];
-	
-	if ( !cl ) 
-	{
-		Com_Printf("Client not found\n");
-		return;
-	}
-	
-	if( cl->netchan.remoteAddress.type == NA_LOOPBACK ) {
-		SV_SendServerCommand(NULL, "print \"%s\"", "Cannot ban host players.\n");
-		return;
-	}
-
-	if ( Cvar_VariableValue("auth_enable") >= 1 ) 
-	{
-		d = atoi(days);
-		h = atoi(hours);
-		m = atoi(mins);
-		VM_Call(gvm, GAME_AUTH_BAN, idnum, d, h, m);
-	}
-	else
-	{
-		Com_Printf( "Auth services disabled\n" );
-		return;
-	}
-}
-
-#endif
-
-
 /*
 ==================
 SV_AddOperatorCommands
@@ -1676,11 +1412,8 @@ void SV_AddOperatorCommands( void ) {
 	Cmd_AddCommand("bandel", SV_BanDel_f);
 	Cmd_AddCommand("exceptdel", SV_ExceptDel_f);
 	Cmd_AddCommand("flushbans", SV_FlushBans_f);
-		//@Barbatos: auth system commands
-#ifdef USE_AUTH
-	Cmd_AddCommand ("auth-whois", SV_Auth_Whois_f);
-	Cmd_AddCommand ("auth-ban", SV_Auth_Ban_f);
-#endif
+	Cmd_AddCommand("auth-whois", SV_Auth_Whois_f);
+	Cmd_AddCommand("auth-ban", SV_Auth_Ban_f);
 }
 
 /*
@@ -1709,3 +1442,197 @@ void SV_RemoveOperatorCommands( void ) {
 #endif
 }
 
+/*
+==================
+SV_PP_Cmd_Argc_to_idnum
+
+@Barbatos: wow this one looks horrible, FIXME!
+==================
+*/
+int SV_Argc_to_idnum( int arg_num ) {
+	client_t	*cl;
+	int			idnum;
+	int			i, k, f, g;
+	int			len, nlen, slen;
+	int			count;
+	char		*search;
+	char		*name;
+
+	// make sure server is running
+	if ( !com_sv_running->integer ) {
+		return -1;
+	}
+
+	if ( Cmd_Argc() < 1 ) {
+		Com_Printf( "No player specified.\n" );
+		return -1;
+	}
+
+	search = Cmd_Argv( arg_num );
+
+	if(strlen( search ) < 3 )
+	{
+		for (i = 0; search[i]; i++) {
+			if (search[i] < '0' || search[i] > '9') {
+				Com_Printf( "Bad slot number: \"%s\".\n", search);
+				return -1;
+			}
+		}
+		idnum = atoi( search );
+		if ( idnum < 0 || idnum >= sv_maxclients->integer ) {
+			Com_Printf( "Bad client slot: %i.\n", idnum );
+			return -1;
+		}
+
+		cl = &svs.clients[idnum];
+		if ( !cl->state ) {
+			Com_Printf( "Client %i is not active.\n", idnum );
+			return -1;
+		}
+		return idnum;
+	}
+	else
+	{
+		f = 0; g = 0;
+		count = 0;
+		idnum = -1;
+		slen = strlen(search);
+		for (i=0,cl=svs.clients ; i < sv_maxclients->integer ; i++,cl++) {
+			if ( cl->state >= CS_CONNECTED ) {
+				name = cl->name;
+				nlen = strlen(name);
+				len = nlen - slen;
+				if(len>=0) {
+					for (k=0; k<=len; k++, name++) {
+						if( toupper(name[0])==toupper(search[0]) ) {
+							for (g=1,f=1; search[f] && name[g]; g++) {
+								if( Q_IsColorString( &name[g] ) ) {
+									g++;
+								} else {
+									if( toupper(name[g])!=toupper(search[f]) ) break;
+									f++;
+								}
+							}
+							if (f==slen) { 
+								count++; 
+								idnum = i; 
+								break; 
+							}
+						}
+					}
+				}
+			}
+		}
+		if( count == 1 ) { 
+			return idnum;
+		}
+		if( count > 0 ) { 
+			Com_Printf( "Too many players found for \"%s\".\n", search );
+			return -1;
+		}
+		if( count == 0 ) { 
+			Com_Printf( "No player found for \"%s\".\n", search );
+			return -1;
+		}
+	}
+
+	return -1;
+}
+
+/*
+==================
+SV_Auth_Whois_f
+
+Get user infos
+==================
+*/
+void SV_Auth_Whois_f( void ) {
+	client_t	*cl;
+	int		idnum = -1;
+
+	// make sure server is running
+	if ( !com_sv_running->integer ) {
+		Com_Printf( "Server is not running.\n" );
+		return;
+	}
+
+	if ( Cmd_Argc() < 2 ) {
+		Com_Printf ("Usage: auth-whois <client number|name>\n");
+		return;
+	}
+
+	idnum = SV_Argc_to_idnum( 1 );
+
+	if( idnum == -1 ) {
+		Com_Printf("Client not found\n");
+		return;
+	}
+
+	cl = &svs.clients[idnum];
+
+	if ( !cl ) {
+		Com_Printf("Client not found\n");
+		return;
+	}
+
+	if ( Cvar_VariableValue("auth_enable") >= 1 )
+		VM_Call(gvm, GAME_AUTH_WHOIS, idnum);
+	else
+		Com_Printf("Auth services disabled.\n");
+}
+
+/*
+==================
+SV_Auth_Ban_f
+
+Ban a user from the server 
+and the group
+==================
+*/
+void SV_Auth_Ban_f( void ) {
+	client_t	*cl;
+	int		idnum = -1;
+	char	*days;
+	char	*hours;
+	char	*mins;
+	//char	s[MAX_STRING_TOKENS];
+
+	if ( !com_sv_running->integer ) {
+		Com_Printf( "Server is not running.\n" );
+		return;
+	}
+
+	days = Cmd_Argv( 2 ); 
+	hours = Cmd_Argv( 3 );
+	mins = Cmd_Argv( 4 );
+
+	if ( Cmd_Argc() < 5 ) {
+		Com_Printf ("Usage: auth-ban <client number|name> <days> <hours> <mins>\n");
+		return;
+	}
+
+	idnum = SV_Argc_to_idnum( 1 );
+
+	if( idnum == -1 ) 
+		return;
+
+	cl = &svs.clients[idnum];
+
+	if ( !cl ) 
+		return;
+
+	if( cl->netchan.remoteAddress.type == NA_LOOPBACK ) {
+		SV_SendServerCommand(NULL, "print \"%s\"", "Cannot ban host players.\n");
+		return;
+	}
+
+	if ( Cvar_VariableValue("auth_enable") >= 1 ) 
+	{
+		VM_Call(gvm, GAME_AUTH_BAN, idnum, atoi(days), atoi(hours), atoi(mins));
+	}
+	else
+	{
+		Com_Printf( "Auth services disabled\n" );
+		return;
+	}
+}

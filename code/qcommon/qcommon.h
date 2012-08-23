@@ -138,7 +138,7 @@ NET
 
 #define	PORT_ANY			-1
 
-#define	MAX_RELIABLE_COMMANDS	128			// max string commands buffered for restransmit
+#define	MAX_RELIABLE_COMMANDS	64			// max string commands buffered for restransmit
 
 typedef enum {
 	NA_BAD = 0,					// an address lookup failed
@@ -254,7 +254,6 @@ PROTOCOL
 
 #define	PROTOCOL_VERSION	70
 #define PROTOCOL_LEGACY_VERSION	70
-
 // 1.31 - 67
 
 // maintain a list of compatible protocols for demo playing
@@ -266,12 +265,12 @@ extern int demo_protocols[];
 #endif
 // override on command line, config files etc.
 #ifndef MASTER_SERVER_NAME
-#define MASTER_SERVER_NAME	"master.urbanterror.info"
+#define MASTER_SERVER_NAME	"master.quake3arena.com"
 #endif
 
 #ifndef STANDALONE
   #ifndef AUTHORIZE_SERVER_NAME
-    #define	AUTHORIZE_SERVER_NAME	"authorize.urbanterror.info"
+    #define	AUTHORIZE_SERVER_NAME	"authorize.quake3arena.com"
   #endif
   #ifndef PORT_AUTHORIZE
   #define	PORT_AUTHORIZE		27952
@@ -875,8 +874,6 @@ extern	cvar_t	*com_protocol;
 extern	cvar_t	*com_legacyprotocol;
 #endif
 
-extern	cvar_t	*com_nosplash;
-
 // com_speeds times
 extern	int		time_game;
 extern	int		time_frontend;
@@ -1123,7 +1120,6 @@ char    *Sys_DefaultAppPath(void);
 
 void  Sys_SetDefaultHomePath(const char *path);
 char	*Sys_DefaultHomePath(void);
-const char	*Sys_TempPath(void);
 const char *Sys_Dirname( char *path );
 const char *Sys_Basename( char *path );
 char *Sys_ConsoleInput(void);

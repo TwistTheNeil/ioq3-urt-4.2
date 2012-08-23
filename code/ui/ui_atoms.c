@@ -174,11 +174,8 @@ void UI_LoadBestScores(const char *map, int game)
 		protocol = trap_Cvar_VariableValue("protocol");
 	if(protocolLegacy == protocol)
 		protocolLegacy = 0;
-#ifdef URT42
-	Com_sprintf(fileName, MAX_QPATH, "demos/%s_%d.%s", map, game, DEMOEXT);
-#else
+
 	Com_sprintf(fileName, MAX_QPATH, "demos/%s_%d.%s%d", map, game, DEMOEXT, protocol);
-#endif
 	if(trap_FS_FOpenFile(fileName, &f, FS_READ) >= 0)
 	{
 		uiInfo.demoAvailable = qtrue;
@@ -186,11 +183,7 @@ void UI_LoadBestScores(const char *map, int game)
 	}
 	else if(protocolLegacy > 0)
 	{
-#ifdef URT42
-		Com_sprintf(fileName, MAX_QPATH, "demos/%s_%d.%s", map, game, DEMOEXT);
-#else
 		Com_sprintf(fileName, MAX_QPATH, "demos/%s_%d.%s%d", map, game, DEMOEXT, protocolLegacy);
-#endif
 		if (trap_FS_FOpenFile(fileName, &f, FS_READ) >= 0)
 		{
 			uiInfo.demoAvailable = qtrue;

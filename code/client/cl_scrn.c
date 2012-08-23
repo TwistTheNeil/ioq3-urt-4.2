@@ -30,8 +30,6 @@ cvar_t		*cl_debuggraph;
 cvar_t		*cl_graphheight;
 cvar_t		*cl_graphscale;
 cvar_t		*cl_graphshift;
-cvar_t		*cl_recordfontsize;
-
 
 /*
 ================
@@ -330,13 +328,8 @@ SCR_DrawDemoRecording
 =================
 */
 void SCR_DrawDemoRecording( void ) {
-  
-	char		string[1024];
-	char		cut[10];
-	int		pos, fontsize;
-
-	fontsize = cl_recordfontsize->integer;
-
+	char	string[1024];
+	int		pos;
 
 	if ( !clc.demorecording ) {
 		return;
@@ -346,13 +339,9 @@ void SCR_DrawDemoRecording( void ) {
 	}
 
 	pos = FS_FTell( clc.demofile );
-	strncpy(cut,clc.demoName,10);
-	cut[9]='\0';
-	
-	sprintf( string, ": %s.. %iKB", cut, pos / 1024);
-	
-	SCR_DrawStringExt( 320 - strlen( string ) * 4 , 20, fontsize, "REC", g_color_table[1], qtrue, qfalse );
-	SCR_DrawStringExt( 320 - strlen( string ) * 4 + fontsize * 3, 20, fontsize, string, g_color_table[7], qtrue, qfalse );
+	sprintf( string, "RECORDING %s: %ik", clc.demoName, pos / 1024 );
+
+	SCR_DrawStringExt( 320 - strlen( string ) * 4, 20, 8, string, g_color_table[7], qtrue, qfalse );
 }
 
 

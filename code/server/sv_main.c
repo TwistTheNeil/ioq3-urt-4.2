@@ -62,11 +62,10 @@ cvar_t	*sv_strictAuth;
 #endif
 cvar_t	*sv_banFile;
 
-//@Barbatos
-#ifdef USE_AUTH
-cvar_t	*sv_authServerIP;
-#endif
-
+cvar_t  *sv_sayprefix;
+cvar_t  *sv_tellprefix;
+cvar_t  *sv_authServerIP;
+cvar_t  *sv_auth_engine;
 
 serverBan_t serverBans[SERVER_MAXBANS];
 int serverBansCount = 0;
@@ -259,11 +258,8 @@ void SV_MasterHeartbeat(const char *message)
 		return;
 
 	svs.nextHeartbeatTime = svs.time + HEARTBEAT_MSEC;
-	
-	#ifdef USE_AUTH
+
 	VM_Call( gvm, GAME_AUTHSERVER_HEARTBEAT );
-	#endif
-	
 
 	// send to group masters
 	for (i = 0; i < MAX_MASTER_SERVERS; i++)
@@ -354,10 +350,8 @@ void SV_MasterShutdown( void ) {
 
 	// when the master tries to poll the server, it won't respond, so
 	// it will be removed from the list
-	
-	#ifdef USE_AUTH
+
 	VM_Call( gvm, GAME_AUTHSERVER_SHUTDOWN );
-	#endif
 }
 
 
@@ -567,7 +561,7 @@ static void SVC_Status( netadr_t from ) {
 	char	infostring[MAX_INFO_STRING];
 
 	// ignore if we are in single player
-	if ( Cvar_VariableValue( "g_gametype" ) == GT_SINGLE_PLAYER ) {
+	if ( Cvar_VariableValue( "g_gametype" ) == GT_SINGLE_PLAYER || Cvar_VariableValue("ui_singlePlayerActive")) {
 		return;
 	}
 
@@ -622,7 +616,7 @@ if a user is interested in a server to do a full status
 */
 void SVC_Info( netadr_t from ) {
 	int		i, count, humans;
-	char	*gamedir;
+	//char	*gamedir;
 	char	infostring[MAX_INFO_STRING];
 
 	// ignore if we are in single player
@@ -687,13 +681,9 @@ void SVC_Info( netadr_t from ) {
 		va("%i", sv_maxclients->integer - sv_privateClients->integer ) );
 	Info_SetValueForKey( infostring, "gametype", va("%i", sv_gametype->integer ) );
 	Info_SetValueForKey( infostring, "pure", va("%i", sv_pure->integer ) );
-	//@Barbatos
-	#ifdef USE_AUTH
+	Info_SetValueForKey(infostring, "g_needpass", va("%d", Cvar_VariableIntegerValue("g_needpass")));
+
 	Info_SetValueForKey( infostring, "auth_enable", Cvar_VariableString("auth_enable") );
-	#endif
-	
-		if(Cvar_VariableValue("g_needpass") == 1)
-		    Info_SetValueForKey( infostring, "password", va("%i", 1));
 
 #ifdef USE_VOIP
 	if (sv_voip->integer) {
@@ -707,10 +697,15 @@ void SVC_Info( netadr_t from ) {
 	if( sv_maxPing->integer ) {
 		Info_SetValueForKey( infostring, "maxPing", va("%i", sv_maxPing->integer) );
 	}
+	/* hack for freebsd
 	gamedir = Cvar_VariableString( "fs_game" );
 	if( *gamedir ) {
 		Info_SetValueForKey( infostring, "game", gamedir );
 	}
+	*/
+
+	Info_SetValueForKey( infostring, "game", "q3ut4" );
+
 
 	NET_OutOfBandPrint( NS_SERVER, from, "infoResponse\n%s", infostring );
 }
@@ -811,12 +806,10 @@ connectionless packets.
 =================
 */
 static void SV_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
+	netadr_t authServerIP;
 	char	*s;
 	char	*c;
-	#ifdef USE_AUTH
-	netadr_t	authServerIP;
-	#endif
-	
+
 	MSG_BeginReadingOOB( msg );
 	MSG_ReadLong( msg );		// skip the -1 marker
 
@@ -838,28 +831,21 @@ static void SV_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 		SV_GetChallenge(from);
 	} else if (!Q_stricmp(c, "connect")) {
 		SV_DirectConnect( from );
-	}
 #ifndef STANDALONE
-	 else if (!Q_stricmp(c, "ipAuthorize")) {
+	} else if (!Q_stricmp(c, "ipAuthorize")) {
 		SV_AuthorizeIpPacket( from );
-	}
 #endif
-#ifdef USE_AUTH
-	// @Barbatos @Kalish
-	else if ( (!Q_stricmp(c, "AUTH:SV"))) 
-	{
+	} else if (!Q_stricmp(c, "rcon")) {
+		SVC_RemoteCommand( from, msg );
+	} else if (!Q_stricmp(c, "AUTH:SV")) {
 		NET_StringToAdr(sv_authServerIP->string, &authServerIP, NA_IP);
-		
-		if ( !NET_CompareBaseAdr( from, authServerIP ) ) {
-			Com_Printf( "AUTH not from the Auth Server\n" );
+
+		if( !NET_CompareBaseAdr( from, authServerIP ) ) {
+			Com_Printf( "AUTH:SV: not from the Auth Server\n" );
 			return;
 		}
-		VM_Call(gvm, GAME_AUTHSERVER_PACKET);
-	} 
-#endif
-	
-	else if (!Q_stricmp(c, "rcon")) {
-		SVC_RemoteCommand( from, msg );
+
+		VM_Call( gvm, GAME_AUTHSERVER_PACKET );
 	} else if (!Q_stricmp(c, "disconnect")) {
 		// if a client starts up a local server, we may see some spurious
 		// server disconnect messages when their new server sees our final

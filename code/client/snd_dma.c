@@ -32,11 +32,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "snd_local.h"
 #include "snd_codec.h"
 #include "client.h"
-#include "snd_dmahd.h"
-#ifdef SOUND_HAX
-#include "snd_ignore_base42.h"
-//#include "snd_ignore_base41.h"
-#endif
 
 void S_Update_( void );
 void S_Base_StopAllSounds(void);
@@ -60,14 +55,14 @@ channel_t   s_channels[MAX_CHANNELS];
 channel_t   loop_channels[MAX_CHANNELS];
 int			numLoopChannels;
 
-int	s_soundStarted;
-qboolean	s_soundMuted;
+static int	s_soundStarted;
+static		qboolean	s_soundMuted;
 
 dma_t		dma;
 
-int			listener_number;
-vec3_t		listener_origin;
-vec3_t		listener_axis[3];
+static int			listener_number;
+static vec3_t		listener_origin;
+static vec3_t		listener_axis[3];
 
 int			s_soundtime;		// sample PAIRS
 int   		s_paintedtime; 		// sample PAIRS
@@ -86,7 +81,7 @@ cvar_t		*s_show;
 cvar_t		*s_mixahead;
 cvar_t		*s_mixPreStep;
 
-loopSound_t		loopSounds[MAX_GENTITIES];
+static loopSound_t		loopSounds[MAX_GENTITIES];
 static	channel_t		*freelist = NULL;
 
 int						s_rawend[MAX_RAW_STREAMS];
@@ -99,24 +94,24 @@ portable_samplepair_t s_rawsamples[MAX_RAW_STREAMS][MAX_RAW_SAMPLES];
 
 
 void S_Base_SoundInfo(void) {	
-	Com_DPrintf("----- Sound Info -----\n" );
+	Com_Printf("----- Sound Info -----\n" );
 	if (!s_soundStarted) {
 		Com_Printf ("sound system not started\n");
 	} else {
-		Com_DPrintf("%5d stereo\n", dma.channels - 1);
-		Com_DPrintf("%5d samples\n", dma.samples);
-		Com_DPrintf("%5d samplebits\n", dma.samplebits);
-		Com_DPrintf("%5d submission_chunk\n", dma.submission_chunk);
-		Com_DPrintf("%5d speed\n", dma.speed);
-		Com_DPrintf("%p dma buffer\n", dma.buffer);
+		Com_Printf("%5d stereo\n", dma.channels - 1);
+		Com_Printf("%5d samples\n", dma.samples);
+		Com_Printf("%5d samplebits\n", dma.samplebits);
+		Com_Printf("%5d submission_chunk\n", dma.submission_chunk);
+		Com_Printf("%5d speed\n", dma.speed);
+		Com_Printf("%p dma buffer\n", dma.buffer);
 		if ( s_backgroundStream ) {
-			Com_DPrintf("Background file: %s\n", s_backgroundLoop );
+			Com_Printf("Background file: %s\n", s_backgroundLoop );
 		} else {
-			Com_DPrintf("No background file.\n" );
+			Com_Printf("No background file.\n" );
 		}
 
 	}
-	Com_DPrintf("----------------------\n" );
+	Com_Printf("----------------------\n" );
 }
 
 
@@ -498,35 +493,6 @@ void S_Base_StartSound(vec3_t origin, int entityNum, int entchannel, sfxHandle_t
 	if ( !origin && ( entityNum < 0 || entityNum > MAX_GENTITIES ) ) {
 		Com_Error( ERR_DROP, "S_StartSound: bad entitynum %i", entityNum );
 	}
-
-#ifdef SOUND_HAX
-	if(s_envSoundEnable->integer == 0) {
-		sfx = &s_knownSfx [ sfxHandle ];
-
-		for(i = 0; ; i++) {
-			if(!s_baseSoundsIgnored[i]) break;
-
-			if(!strcmp(sfx->soundName, s_baseSoundsIgnored[i]))
-				return;
-		}
-
-		if(entityNum == clc.clientNum) {
-			if(!strcmp(sfx->soundName, "sound/player/male/breathin1.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/female/breathin1.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/male/breathout1.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/female/breathout1.wav")) return;
-			
-			// additional for v3.0
-			if(!strcmp(sfx->soundName, "sound/bandage.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/bodysplash.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/dripping.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/fry.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/watr_in.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/watr_out.wav")) return;
-			if(!strcmp(sfx->soundName, "sound/player/watr_un.wav")) return;
-		}
-	}
-#endif
 
 	if ( sfxHandle < 0 || sfxHandle >= s_numSfx ) {
 		Com_Printf( S_COLOR_YELLOW "S_StartSound: handle %i out of range\n", sfxHandle );
@@ -1413,7 +1379,7 @@ void S_UpdateBackgroundTrack( void ) {
 		bufferSamples = MAX_RAW_SAMPLES - (s_rawend[0] - s_soundtime);
 
 		// decide how much data needs to be read from the file
-		fileSamples = (bufferSamples * dma.speed) / s_backgroundStream->info.rate;
+		fileSamples = bufferSamples * s_backgroundStream->info.rate / dma.speed;
 
 		if (!fileSamples)
 			return;
@@ -1576,10 +1542,6 @@ qboolean S_Base_Init( soundInterface_t *si ) {
 	si->Capture = S_Base_Capture;
 	si->StopCapture = S_Base_StopCapture;
 	si->MasterGain = S_Base_MasterGain;
-#endif
-
-#ifndef NO_DMAHD
-	if(dmaHD_Enabled()) return dmaHD_Init(si);
 #endif
 
 	return qtrue;

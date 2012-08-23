@@ -199,7 +199,6 @@ typedef struct {
 	fileHandle_t download;
 	char		downloadTempName[MAX_OSPATH];
 	char		downloadName[MAX_OSPATH];
-	char		mapname[MAX_OSPATH];
 #ifdef USE_CURL
 	qboolean	cURLEnabled;
 	qboolean	cURLUsed;
@@ -373,8 +372,8 @@ extern	cvar_t	*cl_nodelta;
 extern	cvar_t	*cl_debugMove;
 extern	cvar_t	*cl_noprint;
 extern	cvar_t	*cl_timegraph;
-extern	cvar_t	*sacc_maxpackets;
-extern	cvar_t	*sacc_packetdup;
+extern	cvar_t	*cl_maxpackets;
+extern	cvar_t	*cl_packetdup;
 extern	cvar_t	*cl_shownet;
 extern	cvar_t	*cl_showSend;
 extern	cvar_t	*cl_timeNudge;
@@ -424,10 +423,8 @@ extern	cvar_t	*cl_inGameVideo;
 
 extern	cvar_t	*cl_lanForcePackets;
 extern	cvar_t	*cl_autoRecordDemo;
-extern  cvar_t  *cl_altTab;
-extern	cvar_t	*cl_consoleKeys;
 
-cvar_t	*s_envSoundEnable;
+extern	cvar_t	*cl_consoleKeys;
 
 #ifdef USE_MUMBLE
 extern	cvar_t	*cl_useMumble;
@@ -448,11 +445,6 @@ extern	cvar_t	*cl_voipShowMeter;
 extern	cvar_t	*cl_voip;
 #endif
 
-#ifdef USE_AUTH
-extern  cvar_t  *cl_auth_engine;
-extern  cvar_t  *cl_auth;
-extern  cvar_t  *cl_authc;
-#endif
 //=================================================
 
 //
@@ -642,7 +634,3 @@ qboolean CL_VideoRecording( void );
 //
 void CL_WriteDemoMessage ( msg_t *msg, int headerBytes );
 
-#ifdef USE_AUTH
-void Sys_StartProcess(char *, qboolean);
-void Sys_OpenURL(const char *, qboolean);
-#endif

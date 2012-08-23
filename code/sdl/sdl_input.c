@@ -54,7 +54,6 @@ static SDL_Joystick *stick = NULL;
 static qboolean mouseAvailable = qfalse;
 static qboolean mouseActive = qfalse;
 static qboolean keyRepeatEnabled = qfalse;
-qboolean fullscreen_minimized = qfalse;
 
 static cvar_t *in_mouse             = NULL;
 #ifdef MACOS_X_ACCELERATION_HACK
@@ -485,7 +484,7 @@ static void IN_ActivateMouse( void )
 IN_DeactivateMouse
 ===============
 */
-void IN_DeactivateMouse( void )
+static void IN_DeactivateMouse( void )
 {
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
 		return;
@@ -953,16 +952,6 @@ static void IN_ProcessEvents( void )
 					Cvar_SetValue( "com_unfocused",	!e.active.gain);
 				}
 				if (e.active.state & SDL_APPACTIVE) {
-				      if (e.active.gain)
-				      {
-					  if (fullscreen_minimized)
-					  {
-					    Cvar_Set("r_fullscreen", "1");
-					    fullscreen_minimized = qfalse;
-					  }
-
-					  IN_ActivateMouse();
-				      }
 					Cvar_SetValue( "com_minimized", !e.active.gain);
 				}
 				break;
@@ -988,7 +977,7 @@ void IN_Frame( void )
 	// If not DISCONNECTED (main menu) or ACTIVE (in game), we're loading
 	loading = ( clc.state != CA_DISCONNECTED && clc.state != CA_ACTIVE );
 
-	if( (!Cvar_VariableIntegerValue("r_fullscreen") && ( Key_GetCatcher( ) & KEYCATCH_CONSOLE ) ) || com_minimized->integer)
+	if( !Cvar_VariableIntegerValue("r_fullscreen") && ( Key_GetCatcher( ) & KEYCATCH_CONSOLE ) )
 	{
 		// Console is down in windowed mode
 		IN_DeactivateMouse( );

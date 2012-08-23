@@ -24,7 +24,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "q_shared.h"
 #include "qcommon.h"
 
-#define	MAX_CMD_BUFFER	65536
+#define	MAX_CMD_BUFFER	16384
 #define	MAX_CMD_LINE	1024
 
 typedef struct {
@@ -271,11 +271,12 @@ void Cmd_Exec_f( void ) {
 		void	*v;
 	} f;
 	char	filename[MAX_QPATH];
-	quiet = !Q_stricmp(Cmd_Argv(0),"execq");
+
+	quiet = !Q_stricmp(Cmd_Argv(0), "execq");
 
 	if (Cmd_Argc () != 2) {
 		Com_Printf ("exec%s <filename> : execute a script file%s\n",
-		    quiet ? "q" : "", quiet ? " without notification" : "");
+		            quiet ? "q" : "", quiet ? " without notification" : "");
 		return;
 	}
 
@@ -283,13 +284,11 @@ void Cmd_Exec_f( void ) {
 	COM_DefaultExtension( filename, sizeof( filename ), ".cfg" );
 	FS_ReadFile( filename, &f.v);
 	if (!f.c) {
-		Com_Printf ("couldn't exec %s\n",filename);
+		Com_Printf ("couldn't exec %s\n", filename);
 		return;
 	}
-	
-	if(!quiet){
-	      Com_Printf ("execing %s\n",Cmd_Argv(1));
-	}
+	if (!quiet)
+		Com_Printf ("execing %s\n", filename);
 	
 	Cbuf_InsertText (f.c);
 
@@ -314,49 +313,6 @@ void Cmd_Vstr_f( void ) {
 
 	v = Cvar_VariableString( Cmd_Argv( 1 ) );
 	Cbuf_InsertText( va("%s\n", v ) );
-}
-
-/*
-===============
-Cmd_PVstr_f
-
-Inserts the current value of a variable as command text // key press/ key release edition (backported from iourt)
-===============
-*/
-void Cmd_PVstr_f(void)
-{
-    char *v = NULL;
-    //static qboolean pushed = qfalse;
-
-    // dunno why five...probably because + keys are handled differently...
-    if (Cmd_Argc() != 5)
-    {
-        Com_Printf
-            ("+vstr <variablename1> <variablename2>: execute a variable command on key press and release\n");
-        return;
-    }
-
-    switch (Cmd_Argv(0)[0])
-    {
-    case '+':
-        v = Cvar_VariableString(Cmd_Argv(1));
-        //pushed = qtrue;
-        break;
-    case '-':
-        // we check this because otherwise key release would fire even in the console...
-        //if(pushed) { //ioq3-urt workaround: commented; this is almost a bug since it doesn't let a _second_ bind work properly
-        v = Cvar_VariableString(Cmd_Argv(2));
-        //pushed = qfalse;
-        //}
-        break;
-    default:
-        Com_Printf("Cmd_PVstr_f: unexpected leading character '%c'\n",
-                   Cmd_Argv(0)[0]);
-    }
-    if (v)
-    {
-        Cbuf_InsertText(va("%s\n", v));
-    }
 }
 
 
@@ -902,15 +858,10 @@ Cmd_Init
 void Cmd_Init (void) {
 	Cmd_AddCommand ("cmdlist",Cmd_List_f);
 	Cmd_AddCommand ("exec",Cmd_Exec_f);
-	Cmd_AddCommand("execq",Cmd_Exec_f);
-	
+	Cmd_AddCommand ("execq",Cmd_Exec_f);
 	Cmd_SetCommandCompletionFunc( "exec", Cmd_CompleteCfgName );
-	Cmd_SetCommandCompletionFunc("execq",Cmd_CompleteCfgName);
+	Cmd_SetCommandCompletionFunc( "execq", Cmd_CompleteCfgName );
 	Cmd_AddCommand ("vstr",Cmd_Vstr_f);
-	Cmd_AddCommand("+vstr", Cmd_PVstr_f);
-	Cmd_SetCommandCompletionFunc("+vstr", Cvar_CompleteCvarName);
-	Cmd_AddCommand("-vstr", Cmd_PVstr_f);
-	Cmd_SetCommandCompletionFunc("-vstr", Cvar_CompleteCvarName);
 	Cmd_SetCommandCompletionFunc( "vstr", Cvar_CompleteCvarName );
 	Cmd_AddCommand ("echo",Cmd_Echo_f);
 	Cmd_AddCommand ("wait", Cmd_Wait_f);

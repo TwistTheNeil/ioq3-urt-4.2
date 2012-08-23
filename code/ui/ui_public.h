@@ -32,9 +32,6 @@ typedef struct {
 	char			servername[MAX_STRING_CHARS];
 	char			updateInfoString[MAX_STRING_CHARS];
 	char			messageString[MAX_STRING_CHARS];
-#ifdef USE_AUTH
-	char            serverAddress[MAX_STRING_CHARS];
-#endif
 } uiClientState_t;
 
 typedef enum {
@@ -124,13 +121,6 @@ typedef enum {
 	UI_LAN_GETSERVERPING,
 	UI_LAN_SERVERISVISIBLE,
 	UI_LAN_COMPARESERVERS,
-#ifdef USE_AUTH
-	UI_NET_STRINGTOADR,
-	UI_Q_VSNPRINTF,
-	UI_NET_SENDPACKET,
-	UI_COPYSTRING,
-	UI_SYS_STARTPROCESS,
-#endif
 	// 1.32
 	UI_FS_SEEK,
 	UI_SET_PBCLSTATUS,
@@ -192,12 +182,7 @@ typedef enum {
 
 	UI_DRAW_CONNECT_SCREEN,
 //	void	UI_DrawConnectScreen( qboolean overlay );
-#ifdef USE_AUTH
-	UI_HASUNIQUECDKEY,
-	UI_AUTHSERVER_PACKET,
-#else
 	UI_HASUNIQUECDKEY
-#endif
 // if !overlay, the background will be drawn, otherwise it will be
 // overlayed over whatever the cgame has drawn.
 // a GetClientState syscall will be made to get the current strings

@@ -795,9 +795,9 @@ void Sys_ShowIP(void) {
 		Sys_SockaddrToString(addrbuf, sizeof(addrbuf), (struct sockaddr *) &localIP[i].addr);
 
 		if(localIP[i].type == NA_IP)
-			Com_DPrintf( "IP: %s\n", addrbuf);
+			Com_Printf( "IP: %s\n", addrbuf);
 		else if(localIP[i].type == NA_IP6)
-			Com_DPrintf( "IP6: %s\n", addrbuf);
+			Com_Printf( "IP6: %s\n", addrbuf);
 	}
 }
 
@@ -819,10 +819,10 @@ int NET_IPSocket( char *net_interface, int port, int *err ) {
 	*err = 0;
 
 	if( net_interface ) {
-		Com_DPrintf( "Opening IP socket: %s:%i\n", net_interface, port );
+		Com_Printf( "Opening IP socket: %s:%i\n", net_interface, port );
 	}
 	else {
-		Com_DPrintf( "Opening IP socket: 0.0.0.0:%i\n", port );
+		Com_Printf( "Opening IP socket: 0.0.0.0:%i\n", port );
 	}
 
 	if( ( newsocket = socket( PF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) == INVALID_SOCKET ) {
@@ -889,12 +889,12 @@ int NET_IP6Socket( char *net_interface, int port, struct sockaddr_in6 *bindto, i
 	{
 		// Print the name in brackets if there is a colon:
 		if(Q_CountChar(net_interface, ':'))
-			Com_DPrintf( "Opening IP6 socket: [%s]:%i\n", net_interface, port );
+			Com_Printf( "Opening IP6 socket: [%s]:%i\n", net_interface, port );
 		else
-			Com_DPrintf( "Opening IP6 socket: %s:%i\n", net_interface, port );
+			Com_Printf( "Opening IP6 socket: %s:%i\n", net_interface, port );
 	}
 	else
-		Com_DPrintf( "Opening IP6 socket: [::]:%i\n", port );
+		Com_Printf( "Opening IP6 socket: [::]:%i\n", port );
 
 	if( ( newsocket = socket( PF_INET6, SOCK_DGRAM, IPPROTO_UDP ) ) == INVALID_SOCKET ) {
 		*err = socketError;
@@ -1302,7 +1302,7 @@ static void NET_GetLocalAddress( void ) {
 	if(gethostname( hostname, 256 ) == SOCKET_ERROR)
 		return;
 
-	Com_DPrintf( "Hostname: %s\n", hostname );
+	Com_Printf( "Hostname: %s\n", hostname );
 	
 	memset(&hint, 0, sizeof(hint));
 	

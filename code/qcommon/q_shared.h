@@ -27,14 +27,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // A user mod should never modify this file
 
 #ifdef STANDALONE
-  #define PRODUCT_NAME			"diRf_ioUrT"
-  #define PRODUCT_FULLNAME  		"diRf! ioUrT v3.8"
-  #define PRODUCT_DEVELOPER 		"strata & SudoKing"
+  #define PRODUCT_NAME			"ioUrT"
   #define BASEGAME			"q3ut4"
-  #define CLIENT_WINDOW_TITLE     	"Urban Terror"
-  #define CLIENT_WINDOW_MIN_TITLE 	"UrT"
+  #define CLIENT_WINDOW_TITLE     	"changeme"
+  #define CLIENT_WINDOW_MIN_TITLE 	"changeme2"
   #define HOMEPATH_NAME_UNIX		".q3a"
-  #define HOMEPATH_NAME_WIN		"q3ut4"
+  #define HOMEPATH_NAME_WIN		"FooBar"
   #define HOMEPATH_NAME_MACOSX		HOMEPATH_NAME_WIN
   #define GAMENAME_FOR_MASTER		"Quake3Arena"	// must NOT contain whitespace
   #define LEGACY_PROTOCOL	// You probably don't need this for your standalone game
@@ -64,8 +62,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define MAX_TEAMNAME		32
 #define MAX_MASTER_SERVERS      5	// number of supported master servers
 
-#define DEMOEXT	"urtdemo"			// standard demo extension
-// #define DEMOEXT "dm_"               // standard demo extension
+#define DEMOEXT	"dm_"			// standard demo extension
 
 #ifdef _MSC_VER
 
@@ -229,7 +226,7 @@ typedef int		clipHandle_t;
 #define	MAX_STRING_TOKENS	1024	// max tokens resulting from Cmd_TokenizeString
 #define	MAX_TOKEN_CHARS		1024	// max length of an individual token
 
-#define	MAX_INFO_STRING		1024
+#define	MAX_INFO_STRING		2048
 #define	MAX_INFO_KEY		  1024
 #define	MAX_INFO_VALUE		1024
 
@@ -412,7 +409,7 @@ extern	vec4_t		colorDkGrey;
 #define S_COLOR_MAGENTA	"^6"
 #define S_COLOR_WHITE	"^7"
 
-extern vec4_t	g_color_table[9];
+extern vec4_t	g_color_table[8];
 
 #define	MAKERGB( v, r, g, b ) v[0]=r;v[1]=g;v[2]=b
 #define	MAKERGBA( v, r, g, b, a ) v[0]=r;v[1]=g;v[2]=b;v[3]=a

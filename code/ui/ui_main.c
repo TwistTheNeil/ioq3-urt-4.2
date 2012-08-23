@@ -2933,11 +2933,7 @@ static void UI_LoadDemos( void ) {
 	if(protocolLegacy == protocol)
 		protocolLegacy = 0;
 
-#ifdef URT42
-	Com_sprintf(demoExt, sizeof(demoExt), ".%s", DEMOEXT);
-#else
 	Com_sprintf(demoExt, sizeof(demoExt), ".%s%d", DEMOEXT, protocol);
-#endif
 	uiInfo.demoCount = trap_FS_GetFileList("demos", demoExt, demolist, ARRAY_LEN(demolist));
 	
 	demoname = demolist;
@@ -2959,11 +2955,7 @@ static void UI_LoadDemos( void ) {
 		{
 		        if(protocolLegacy > 0 && uiInfo.demoCount < MAX_DEMOS)
 		        {
-#ifdef URT42
-							Com_sprintf(demoExt, sizeof(demoExt), ".%s", DEMOEXT);
-#else
                         	Com_sprintf(demoExt, sizeof(demoExt), ".%s%d", DEMOEXT, protocolLegacy);
-#endif
                         	uiInfo.demoCount += trap_FS_GetFileList("demos", demoExt, demolist, ARRAY_LEN(demolist));
                         	demoname = demolist;
                         }

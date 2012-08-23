@@ -4,8 +4,4 @@ build/release-linux-x86_64/ded/sv_init.o: code/server/sv_init.c \
  code/server/../qcommon/surfaceflags.h code/server/../qcommon/qcommon.h \
  code/server/../qcommon/../qcommon/cm_public.h \
  code/server/../qcommon/../qcommon/qfiles.h \
- code/server/../game/g_public.h code/server/../game/bg_public.h \
- code/server/../qcommon/vm_local.h code/server/../qcommon/q_shared.h \
- code/server/../qcommon/qcommon.h code/server/../sys/sys_local.h \
- code/server/../sys/../qcommon/q_shared.h \
- code/server/../sys/../qcommon/qcommon.h
+ code/server/../game/g_public.h code/server/../game/bg_public.h

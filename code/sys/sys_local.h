@@ -58,7 +58,3 @@ void Sys_AnsiColorPrint( const char *msg );
 
 int Sys_PID( void );
 qboolean Sys_PIDIsRunning( int pid );
-void Sys_DoStartProcess(char *cmdline);
-void Sys_StartProcess(char *cmdline, qboolean doexit);
-void Sys_OpenURL(const char *url, qboolean doexit);
-

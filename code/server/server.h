@@ -25,15 +25,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../qcommon/qcommon.h"
 #include "../game/g_public.h"
 #include "../game/bg_public.h"
-#include "../qcommon/vm_local.h"
-#include "../sys/sys_local.h"
 
 //=============================================================================
 
 #define	PERS_SCORE				0		// !!! MUST NOT CHANGE, SERVER AND
 										// GAME BOTH REFERENCE !!!
 
-#define	MAX_ENT_CLUSTERS	16	
+#define	MAX_ENT_CLUSTERS	16
 
 #ifdef USE_VOIP
 #define VOIP_QUEUE_LENGTH 64
@@ -304,6 +302,12 @@ extern	int serverBansCount;
 extern	cvar_t	*sv_voip;
 #endif
 
+extern  cvar_t  *sv_sayprefix;
+extern  cvar_t  *sv_tellprefix;
+
+extern  cvar_t  *sv_authServerIP;
+extern  cvar_t  *sv_auth_engine;
+
 
 //===========================================================
 
@@ -471,3 +475,8 @@ void SV_Netchan_Transmit( client_t *client, msg_t *msg);
 int SV_Netchan_TransmitNextFragment(client_t *client);
 qboolean SV_Netchan_Process( client_t *client, msg_t *msg );
 void SV_Netchan_FreeQueue(client_t *client);
+
+int SV_Argc_to_idnum(int);
+void SV_Auth_Whois_f(void);
+void SV_Auth_Ban_f(void);
+

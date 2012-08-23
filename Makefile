@@ -264,8 +264,22 @@ ifneq ($(BUILD_CLIENT),0)
 endif
 
 # Add svn version info
-SVN_REV=2304
-VERSION:=$(VERSION)_SVN$(SVN_REV)
+USE_SVN=
+ifeq ($(wildcard .svn),.svn)
+  SVN_REV=$(shell LANG=C svnversion .)
+  ifneq ($(SVN_REV),)
+    VERSION:=$(VERSION)_SVN$(SVN_REV)
+    USE_SVN=1
+  endif
+else
+ifeq ($(wildcard .git/svn/.metadata),.git/svn/.metadata)
+  SVN_REV=$(shell LANG=C git svn info | awk '$$1 == "Revision:" {print $$2; exit 0}')
+  ifneq ($(SVN_REV),)
+    VERSION:=$(VERSION)_SVN$(SVN_REV)
+  endif
+endif
+endif
+
 
 #############################################################################
 # SETUP AND BUILD -- LINUX
@@ -299,18 +313,18 @@ ifneq (,$(findstring "$(PLATFORM)", "linux" "gnu_kfreebsd" "kfreebsd-gnu"))
     -pipe -DUSE_ICON
   CLIENT_CFLAGS += $(SDL_CFLAGS)
 
-  OPTIMIZEVM = -march=native -O2 -funroll-loops -fomit-frame-pointer
+  OPTIMIZEVM = -O3 -funroll-loops -fomit-frame-pointer
   OPTIMIZE = $(OPTIMIZEVM) -ffast-math
 
   ifeq ($(ARCH),x86_64)
-    OPTIMIZEVM = -march=native -O2 -fomit-frame-pointer -funroll-loops \
+    OPTIMIZEVM = -O3 -fomit-frame-pointer -funroll-loops \
       -falign-loops=2 -falign-jumps=2 -falign-functions=2 \
       -fstrength-reduce
     OPTIMIZE = $(OPTIMIZEVM) -ffast-math
     HAVE_VM_COMPILED = true
   else
   ifeq ($(ARCH),i386)
-    OPTIMIZEVM = -march=native -O2 -march=i586 -fomit-frame-pointer \
+    OPTIMIZEVM = -O3 -march=i586 -fomit-frame-pointer \
       -funroll-loops -falign-loops=2 -falign-jumps=2 \
       -falign-functions=2 -fstrength-reduce
     OPTIMIZE = $(OPTIMIZEVM) -ffast-math
@@ -592,7 +606,7 @@ ifeq ($(PLATFORM),freebsd)
   CLIENT_CFLAGS += $(SDL_CFLAGS)
   HAVE_VM_COMPILED = true
 
-  OPTIMIZEVM = -O3 -march=native -funroll-loops -fomit-frame-pointer
+  OPTIMIZEVM = -O3 -funroll-loops -fomit-frame-pointer
   OPTIMIZE = $(OPTIMIZEVM) -ffast-math
 
   SHLIBEXT=so
@@ -951,18 +965,6 @@ endif
 
 ifdef DEFAULT_BASEDIR
   BASE_CFLAGS += -DDEFAULT_BASEDIR=\\\"$(DEFAULT_BASEDIR)\\\"
-endif
-
-ifeq ($(USE_AUTH),1)
-	BASE_CFLAGS += -DUSE_AUTH=1
-endif
-
-ifeq ($(SOUND_HAX),1)
-	BASE_CFLAGS += -DSOUND_HAX=1
-endif
-
-ifdef ($(URT42),1)
-	BASE_CFLAGS += -DURT42=1
 endif
 
 ifeq ($(USE_LOCAL_HEADERS),1)
@@ -1400,7 +1402,6 @@ Q3OBJ = \
   \
   $(B)/client/snd_adpcm.o \
   $(B)/client/snd_dma.o \
-  $(B)/client/snd_dmahd.o \
   $(B)/client/snd_mem.o \
   $(B)/client/snd_mix.o \
   $(B)/client/snd_wavelet.o \

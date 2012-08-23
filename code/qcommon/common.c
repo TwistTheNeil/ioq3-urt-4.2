@@ -37,9 +37,9 @@ int demo_protocols[] =
 #define MAX_NUM_ARGVS	50
 
 #define MIN_DEDICATED_COMHUNKMEGS 1
-#define MIN_COMHUNKMEGS		96
-#define DEF_COMHUNKMEGS		512
-#define DEF_COMZONEMEGS		512
+#define MIN_COMHUNKMEGS		56
+#define DEF_COMHUNKMEGS		64
+#define DEF_COMZONEMEGS		24
 #define DEF_COMHUNKMEGS_S	XSTRING(DEF_COMHUNKMEGS)
 #define DEF_COMZONEMEGS_S	XSTRING(DEF_COMZONEMEGS)
 
@@ -93,8 +93,6 @@ cvar_t	*com_legacyprotocol;
 cvar_t	*com_basegame;
 cvar_t  *com_homepath;
 cvar_t	*com_busyWait;
-cvar_t	*com_nosplash;
-
 
 #if idx64
 	int (*Q_VMftol)(void);
@@ -1664,7 +1662,7 @@ void Hunk_Clear( void ) {
 	hunk_permanent = &hunk_low;
 	hunk_temp = &hunk_high;
 
-	Com_DPrintf( "Hunk_Clear: reset the hunk ok\n" );
+	Com_Printf( "Hunk_Clear: reset the hunk ok\n" );
 	VM_Clear();
 #ifdef HUNK_DEBUG
 	hunkblocks = NULL;
@@ -2597,7 +2595,7 @@ static void Com_DetectSSE(void)
 #endif
 		Q_VMftol = qvmftolsse;
 
-		Com_DPrintf("Have SSE support\n");
+		Com_Printf("Have SSE support\n");
 #if !idx64
 	}
 	else
@@ -2606,7 +2604,7 @@ static void Com_DetectSSE(void)
 		Q_VMftol = qvmftolx87;
 		Q_SnapVector = qsnapvectorx87;
 
-		Com_DPrintf("No SSE support on this machine\n");
+		Com_Printf("No SSE support on this machine\n");
 	}
 #endif
 }
@@ -2757,7 +2755,6 @@ void Com_Init( char *commandLine ) {
 	com_maxfpsMinimized = Cvar_Get( "com_maxfpsMinimized", "0", CVAR_ARCHIVE );
 	com_abnormalExit = Cvar_Get( "com_abnormalExit", "0", CVAR_ROM );
 	com_busyWait = Cvar_Get("com_busyWait", "0", CVAR_ARCHIVE);
-	com_nosplash = Cvar_Get("com_nosplash","0",CVAR_ARCHIVE);
 	Cvar_Get("com_errorMessage", "", CVAR_ROM | CVAR_NORESTART);
 
 	com_introPlayed = Cvar_Get( "com_introplayed", "0", CVAR_ARCHIVE);
@@ -2811,13 +2808,7 @@ void Com_Init( char *commandLine ) {
 	if ( !Com_AddStartupCommands() ) {
 		// if the user didn't give any commands, run default action
 		if ( !com_dedicated->integer ) {
-			if(com_nosplash->integer){
-					Cvar_Set(com_introPlayed->name,"1");
-					Cvar_Set("nextmap","cinematic intro.RoQ");
-			} else {
-			      Cbuf_AddText ("cinematic idlogo.RoQ\n");
-			}
-			
+			Cbuf_AddText ("cinematic idlogo.RoQ\n");
 			if( !com_introPlayed->integer ) {
 				Cvar_Set( com_introPlayed->name, "1" );
 				Cvar_Set( "nextmap", "cinematic intro.RoQ" );
@@ -2847,7 +2838,7 @@ void Com_Init( char *commandLine ) {
 		pipefile = FS_FCreateOpenPipeFile( com_pipefile->string );
 	}
 
-	Com_DPrintf ("--- Common Initialization Complete ---\n");
+	Com_Printf ("--- Common Initialization Complete ---\n");
 }
 
 /*

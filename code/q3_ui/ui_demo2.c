@@ -221,11 +221,7 @@ static void Demos_MenuInit( void ) {
 	if(protocolLegacy == protocol)
 		protocolLegacy = 0;
 
-#ifdef URT42
-	Com_sprintf(extension, sizeof(extension), ".%s", DEMOEXT);
-#else
 	Com_sprintf(extension, sizeof(extension), ".%s%d", DEMOEXT, protocol);
-#endif
 	s_demos.numDemos = trap_FS_GetFileList("demos", extension, s_demos.names, ARRAY_LEN(s_demos.names));
 
 	demoname = s_demos.names;
@@ -249,11 +245,7 @@ static void Demos_MenuInit( void ) {
 		{
 			if(protocolLegacy > 0 && s_demos.numDemos < MAX_DEMOS)
 			{
-#ifdef URT42
-				Com_sprintf(extension, sizeof(extension), ".%s", DEMOEXT);
-#else
 				Com_sprintf(extension, sizeof(extension), ".%s%d", DEMOEXT, protocolLegacy);
-#endif
 				s_demos.numDemos += trap_FS_GetFileList("demos", extension, demoname,
 									ARRAY_LEN(s_demos.names) - (demoname - s_demos.names));
 			}
